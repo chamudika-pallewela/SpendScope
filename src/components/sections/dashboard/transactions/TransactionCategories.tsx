@@ -1,5 +1,7 @@
 import {
   Box,
+  Button,
+  ButtonGroup,
   Card,
   CardContent,
   Collapse,
@@ -20,7 +22,8 @@ import {
   Transaction,
   TransactionResponse,
 } from 'config/categories';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { analyzeRisks } from 'helpers/utils';
 
 interface TransactionCategoriesProps {
   transactionData: TransactionResponse | null;
@@ -64,6 +67,9 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
     }
   });
 
+  // Compute AML risk flags for All Transactions tab
+  const riskAnalysis = useMemo(() => analyzeRisks(transactionData.transactions), [transactionData.transactions]);
+
   // Calculate totals for each category and subcategory
   const calculateTotals = (transactions: Transaction[]) => {
     const totalIn = transactions.reduce((sum, t) => sum + (t.money_in || 0), 0);
@@ -97,6 +103,154 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
     setActiveTab(newValue);
     setExpandedCategories(new Set());
     setSelectedSubcategory(null);
+  };
+
+  // Build a flattened data structure for export
+  const buildExportRows = () => {
+    const rows: Array<Record<string, string | number | null>> = [];
+    Object.keys(CATEGORY_MAP).forEach((category) => {
+      const subcategories = groupedTransactions[category] || {};
+      // Direct transactions first
+      const directTxs = subcategories['direct'] || [];
+      directTxs.forEach((t) => {
+        rows.push({
+          category,
+          subcategory: '',
+          date: t.date,
+          description: t.description,
+          money_in: t.money_in || 0,
+          money_out: t.money_out || 0,
+          net: (t.money_in || 0) - (t.money_out || 0),
+          balance: t.balance,
+          currency: t.currency,
+        });
+      });
+      // Then mapped subcategories in defined order
+      CATEGORY_MAP[category as keyof typeof CATEGORY_MAP]?.subcategories.forEach((sub) => {
+        const txs = subcategories[sub] || [];
+        txs.forEach((t) => {
+          rows.push({
+            category,
+            subcategory: sub,
+            date: t.date,
+            description: t.description,
+            money_in: t.money_in || 0,
+            money_out: t.money_out || 0,
+            net: (t.money_in || 0) - (t.money_out || 0),
+            balance: t.balance,
+            currency: t.currency,
+          });
+        });
+      });
+    });
+    return rows;
+  };
+
+  const exportCSV = () => {
+    const rows = buildExportRows();
+    const headers = [
+      'category',
+      'subcategory',
+      'date',
+      'description',
+      'money_in',
+      'money_out',
+      'net',
+      'balance',
+      'currency',
+    ];
+    const csv = [
+      headers.join(','),
+      ...rows.map((r) =>
+        headers
+          .map((h) => {
+            const val = r[h as keyof typeof r];
+            const s = val === null || val === undefined ? '' : String(val);
+            // Escape quotes and commas
+            const needsQuotes = /[",\n]/.test(s);
+            const escaped = s.replace(/"/g, '""');
+            return needsQuotes ? `"${escaped}"` : escaped;
+          })
+          .join(','),
+      ),
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `transactions_${transactionData.bank}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPDF = () => {
+    // Create a printable HTML using current grouped data and colors
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const styles = `
+      <style>
+        body { font-family: Inter, Arial, sans-serif; padding: 16px; color: #111; }
+        .title { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+        .category { border-radius: 8px; margin: 12px 0; overflow: hidden; border: 1px solid #e0e0e0; }
+        .cat-header { padding: 10px 12px; color: #fff; display: flex; align-items: center; justify-content: space-between; }
+        .sub { padding: 8px 12px; background: #fafafa; border-top: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+        .tx { padding: 8px 12px; border-top: 1px dashed #eee; display: flex; align-items: flex-start; justify-content: space-between; }
+        .meta { color: #666; font-size: 12px; }
+        .pos { color: #2e7d32; font-weight: 600; }
+        .neg { color: #c62828; font-weight: 600; }
+      </style>
+    `;
+    const fmt = (n: number) => formatCurrency(n);
+    let html = `<div class="title">Transactions - ${transactionData.bank}</div>`;
+    Object.keys(CATEGORY_MAP).forEach((category) => {
+      const color = CATEGORY_MAP[category as keyof typeof CATEGORY_MAP]?.color || '#999';
+      const subcategories = groupedTransactions[category] || {};
+      const allTx = Object.values(subcategories).flat();
+      const totals = calculateTotals(allTx);
+      html += `<div class="category">
+        <div class="cat-header" style="background:${color}">
+          <div style="font-weight:700;text-transform:capitalize">${category}</div>
+          <div>
+            <span class="pos">${fmt(totals.totalIn)}</span>
+            &nbsp;|&nbsp;
+            <span class="neg">-${fmt(totals.totalOut)}</span>
+            &nbsp;|&nbsp;
+            <span style="font-weight:700">${fmt(totals.net)}</span>
+          </div>
+        </div>`;
+      // direct
+      const direct = subcategories['direct'] || [];
+      direct.forEach((t) => {
+        html += `<div class="tx">
+          <div>
+            <div style="font-weight:600">${t.description}</div>
+            <div class="meta">${new Date(t.date).toLocaleDateString('en-GB')} • Balance ${fmt(t.balance)}</div>
+          </div>
+          <div>${t.money_in ? `<span class='pos'>+${fmt(t.money_in)}</span>` : ''}${t.money_out ? `<span class='neg'>-${fmt(t.money_out)}</span>` : ''}</div>
+        </div>`;
+      });
+      // subcategories in order
+      CATEGORY_MAP[category as keyof typeof CATEGORY_MAP]?.subcategories.forEach((sub) => {
+        const txs = subcategories[sub] || [];
+        const subtot = calculateTotals(txs);
+        html += `<div class="sub"><div style="text-transform:capitalize">${sub}</div>
+          <div>${txs.length} tx • <span class='pos'>${fmt(subtot.totalIn)}</span> | <span class='neg'>-${fmt(subtot.totalOut)}</span> | <b>${fmt(subtot.net)}</b></div></div>`;
+        txs.forEach((t) => {
+          html += `<div class="tx">
+            <div>
+              <div style="font-weight:600">${t.description}</div>
+              <div class="meta">${new Date(t.date).toLocaleDateString('en-GB')} • Balance ${fmt(t.balance)}</div>
+            </div>
+            <div>${t.money_in ? `<span class='pos'>+${fmt(t.money_in)}</span>` : ''}${t.money_out ? `<span class='neg'>-${fmt(t.money_out)}</span>` : ''}</div>
+          </div>`;
+        });
+      });
+      html += `</div>`;
+    });
+    w.document.write(`<html><head><title>Transactions - ${transactionData.bank}</title>${styles}</head><body>${html}</body></html>`);
+    w.document.close();
+    w.focus();
+    w.print();
   };
 
   return (
@@ -142,6 +296,7 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
 
           {/* All Transactions Tab */}
           {activeTab === 0 && (
+            <>
             <List sx={{ width: '100%' }}>
               {transactionData.transactions
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -149,18 +304,21 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                   const categoryInfo =
                     CATEGORY_MAP[transaction.category as keyof typeof CATEGORY_MAP];
                   const netAmount = (transaction.money_in || 0) - (transaction.money_out || 0);
+                  const originalIndex = transactionData.transactions.indexOf(transaction);
+                  const risk = riskAnalysis.txRisks.get(originalIndex);
+                  const isFlagged = !!risk?.flagged && risk.severity !== 'None';
 
                   return (
                     <ListItem
                       key={index}
                       sx={{
                         border: '1px solid',
-                        borderColor: 'grey.200',
+                        borderColor: isFlagged ? 'error.main' : 'grey.200',
                         borderRadius: 1,
                         mb: 1,
-                        backgroundColor: 'common.white',
+                        backgroundColor: isFlagged ? 'error.lighter' : 'common.white',
                         '&:hover': {
-                          backgroundColor: 'grey.50',
+                          backgroundColor: isFlagged ? 'error.lighter' : 'grey.50',
                         },
                       }}
                     >
@@ -198,6 +356,11 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                             <Typography variant="caption" color="text.secondary">
                               Balance: {formatCurrency(transaction.balance)}
                             </Typography>
+                            {isFlagged && (
+                              <Typography variant="caption" color="error.main" sx={{ fontWeight: 600 }}>
+                                Risk: {risk?.severity} — {risk?.reasons.join('; ')}
+                              </Typography>
+                            )}
                             {transaction.note && (
                               <Typography variant="caption" color="warning.main">
                                 {transaction.note}
@@ -229,11 +392,24 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                   );
                 })}
             </List>
+
+            </>
           )}
 
           {/* Categories Tab */}
           {activeTab === 1 && (
-            <List sx={{ width: '100%' }}>
+            <>
+              <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
+                <ButtonGroup variant="contained" size="small">
+                  <Button color="primary" onClick={exportCSV} startIcon={<IconifyIcon icon="material-symbols:table" />}>
+                    Export CSV
+                  </Button>
+                  <Button color="secondary" onClick={exportPDF} startIcon={<IconifyIcon icon="material-symbols:picture-as-pdf" />}>
+                    Export PDF
+                  </Button>
+                </ButtonGroup>
+              </Stack>
+              <List sx={{ width: '100%' }}>
               {Object.entries(groupedTransactions).map(([category, subcategories]) => {
                 const categoryInfo = CATEGORY_MAP[category as keyof typeof CATEGORY_MAP];
                 const categoryTotals = Object.values(subcategories)
@@ -591,7 +767,8 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                   </Box>
                 );
               })}
-            </List>
+              </List>
+            </>
           )}
         </Stack>
       </CardContent>

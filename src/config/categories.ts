@@ -84,6 +84,68 @@ export const CATEGORY_MAP = {
     icon: "material-symbols:flight",
     color: "#00BCD4",
     subcategories: ["transport and travel", "accommodations"]
+  },
+  // ---------------- Added per Budget Planner taxonomy ----------------
+  "essential living costs": {
+    icon: "material-symbols:home-app-logo",
+    color: "#1E88E5",
+    subcategories: [
+      "rent / mortgage payments",
+      "council tax",
+      "electricity",
+      "gas",
+      "water",
+      "internet / telephone / tv",
+      "groceries / supermarkets",
+      "household goods",
+      "dining / takeaway / restaurants"
+    ]
+  },
+  "transport & travel": {
+    icon: "material-symbols:directions-car",
+    color: "#43A047",
+    subcategories: [
+      "fuel / petrol / diesel",
+      "public transport",
+      "taxis / ride-hailing",
+      "vehicle maintenance & insurance",
+      "parking fees / tolls",
+      "flights / hotels / holidays"
+    ]
+  },
+  "family & dependents": {
+    icon: "material-symbols:family-restroom",
+    color: "#8E24AA",
+    subcategories: [
+      "childcare / nursery / babysitting",
+      "school fees / tuition",
+      "clothing & footwear",
+      "healthcare / medicines / insurance",
+      "elderly care / family support"
+    ]
+  },
+  "financial commitments": {
+    icon: "material-symbols:credit-card",
+    color: "#EF6C00",
+    subcategories: [
+      "credit card payments",
+      "personal loans / hp agreements",
+      "overdraft fees",
+      "bank charges / interest",
+      "other mortgages / secured loans"
+    ]
+  },
+  "lifestyle & discretionary": {
+    icon: "material-symbols:celebration",
+    color: "#D81B60",
+    subcategories: [
+      "entertainment",
+      "subscriptions / memberships",
+      "hobbies & sports",
+      "shopping",
+      "dining out / coffee shops",
+      "travel & holidays"
+    ]
   }
 };
 
@@ -147,6 +209,48 @@ export const SUBCATEGORY_ICONS: Record<string, string> = {
   // Travel
   "transport and travel": "material-symbols:directions-car",
   "accommodations": "material-symbols:hotel"
+  ,
+  // ---------------- Added per Budget Planner taxonomy ----------------
+  // Essential Living Costs
+  "rent / mortgage payments": "material-symbols:home",
+  "council tax": "material-symbols:account-balance",
+  "electricity": "material-symbols:bolt",
+  "gas": "material-symbols:local-fire-department",
+  "water": "material-symbols:water",
+  "internet / telephone / tv": "material-symbols:router",
+  "groceries / supermarkets": "material-symbols:shopping-cart",
+  "household goods": "material-symbols:cleaning-services",
+  "dining / takeaway / restaurants": "material-symbols:restaurant",
+
+  // Transport & Travel
+  "fuel / petrol / diesel": "material-symbols:local-gas-station",
+  "public transport": "material-symbols:directions-subway",
+  "taxis / ride-hailing": "material-symbols:local-taxi",
+  "vehicle maintenance & insurance": "material-symbols:build",
+  "parking fees / tolls": "material-symbols:local-parking",
+  "flights / hotels / holidays": "material-symbols:flight",
+
+  // Family & Dependents
+  "childcare / nursery / babysitting": "material-symbols:child-care",
+  "school fees / tuition": "material-symbols:school",
+  "clothing & footwear": "material-symbols:checkroom",
+  "healthcare / medicines / insurance": "material-symbols:medical-services",
+  "elderly care / family support": "material-symbols:diversity-3",
+
+  // Financial Commitments
+  "credit card payments": "material-symbols:credit-card",
+  "personal loans / hp agreements": "material-symbols:request-quote",
+  "overdraft fees": "material-symbols:savings",
+  "bank charges / interest": "material-symbols:account-balance",
+  "other mortgages / secured loans": "material-symbols:apartment",
+
+  // Lifestyle & Discretionary
+  "entertainment": "material-symbols:movie",
+  "subscriptions / memberships": "material-symbols:subscriptions",
+  "hobbies & sports": "material-symbols:sports-tennis",
+  "shopping": "material-symbols:shopping-bag",
+  "dining out / coffee shops": "material-symbols:local-cafe",
+  "travel & holidays": "material-symbols:flight"
 };
 
 export interface Transaction {
