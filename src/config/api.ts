@@ -3,12 +3,12 @@ const API_CONFIG = {
   // Development
   development: {
     baseURL: 'http://localhost:8000',
-    prefix: '/api',
+    prefix: '', // No prefix - FastAPI serves directly
   },
   // Production (adjust as needed)
   production: {
     baseURL: 'https://your-fastapi-server.com',
-    prefix: '/api',
+    prefix: '', // No prefix - FastAPI serves directly
   },
 };
 
@@ -21,7 +21,5 @@ export const API_PREFIX = API_CONFIG[environment as keyof typeof API_CONFIG].pre
 
 // Helper function to build full API URL
 export const buildApiUrl = (endpoint: string) => {
-  return `${API_PREFIX}${endpoint}`;
+  return `${API_BASE_URL}${API_PREFIX}${endpoint}`;
 };
-
-

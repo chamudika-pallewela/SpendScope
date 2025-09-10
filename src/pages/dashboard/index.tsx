@@ -10,48 +10,139 @@ import TransactionCharts from 'components/sections/dashboard/transactions/Transa
 import AffordabilityReport from 'components/sections/dashboard/transactions/AffordabilityReport';
 import IncomeVerification from 'components/sections/dashboard/transactions/IncomeVerification';
 import AMLRiskIndicators from 'components/sections/dashboard/transactions/AMLRiskIndicators';
+import BankSelector, { BankData } from 'components/sections/dashboard/transactions/BankSelector';
 import IconifyIcon from 'components/base/IconifyIcon';
 import TransactionSummary from 'components/sections/dashboard/transactions/TransactionSummary';
 import QuickTransfer from 'components/sections/dashboard/transfer/QuickTransfer';
 import FileUpload from 'components/sections/dashboard/upload/FileUpload';
 import { buildApiUrl } from 'config/api';
 import { TransactionResponse, CATEGORY_MAP } from 'config/categories';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 const Dashboard = () => {
   const [transactionData, setTransactionData] = useState<TransactionResponse | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedBank, setSelectedBank] = useState<string | null>(null);
+  const [originalApiResponse, setOriginalApiResponse] = useState<any>(null);
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (files: File[]) => {
     setIsUploading(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      files.forEach((file) => {
+        formData.append('files', file);
+      });
 
       const response = await fetch(buildApiUrl('/extract-transactions'), {
         method: 'POST',
         body: formData,
       });
 
-      if (response.ok) {
-        const result: TransactionResponse = await response.json();
-        console.log('Transaction extraction result:', result);
-        setTransactionData(result);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Transaction extraction result:', result);
+
+      // Store the original API response for bank data extraction
+      setOriginalApiResponse(result);
+
+      // Handle the response format
+      if (result.results && result.results.length > 0) {
+        // Handle multiple files response format
+        const allTransactions = result.results.flatMap(
+          (fileResult: any) => fileResult.transactions,
+        );
+        const firstResult = result.results[0];
+
+        setTransactionData({
+          bank: files.length > 1 ? `Multiple Banks (${files.length} files)` : firstResult.bank,
+          transactions: allTransactions,
+        });
+        setSelectedBank(null); // Reset bank selection when new data is loaded
+      } else if (result.transactions) {
+        // Handle single file response format
+        setTransactionData({
+          bank: result.bank,
+          transactions: result.transactions,
+        });
+        setSelectedBank(null); // Reset bank selection when new data is loaded
       } else {
-        console.error('Failed to extract transactions');
-        // Handle error
+        console.error('No results found in response');
       }
     } catch (error) {
-      console.error('Error uploading file:', error);
-      // Handle error
+      console.error('Error uploading files:', error);
+      // Handle error - you might want to show this to the user
     } finally {
       setIsUploading(false);
     }
   };
 
+  // Extract bank data from transaction data
+  const bankData = useMemo(() => {
+    if (!transactionData) return [];
+
+    // If we have results from multiple files, extract bank info from each
+    const banks: BankData[] = [];
+    const bankMap = new Map<string, { customer_name: string; transactionCount: number }>();
+
+    // Try to extract customer names from the original API response structure
+    // This assumes the API response has the structure you showed with results array
+    const originalResults = originalApiResponse?.results || [];
+
+    transactionData.transactions.forEach((transaction) => {
+      const bankName = transaction.bank;
+      if (bankMap.has(bankName)) {
+        const existing = bankMap.get(bankName)!;
+        existing.transactionCount += 1;
+      } else {
+        // Try to find customer name from original results
+        const originalResult = originalResults.find((result: any) => result.bank === bankName);
+        const customerName = originalResult?.customer_name || 'Customer';
+
+        bankMap.set(bankName, {
+          customer_name: customerName,
+          transactionCount: 1,
+        });
+      }
+    });
+
+    // Convert map to array
+    bankMap.forEach((data, bankName) => {
+      banks.push({
+        bank: bankName,
+        customer_name: data.customer_name,
+        transactionCount: data.transactionCount,
+      });
+    });
+
+    return banks;
+  }, [transactionData, originalApiResponse]);
+
+  // Filter transactions based on selected bank
+  const filteredTransactionData = useMemo(() => {
+    if (!transactionData) return null;
+    if (!selectedBank) return transactionData;
+
+    const filtered = {
+      ...transactionData,
+      transactions: transactionData.transactions.filter(
+        (transaction) => transaction.bank === selectedBank,
+      ),
+    };
+
+    console.log(
+      `Filtered transactions for ${selectedBank}:`,
+      filtered.transactions.length,
+      'transactions',
+    );
+    return filtered;
+  }, [transactionData, selectedBank]);
+
   // Export helpers (buttons under upload area)
   const buildExportRows = () => {
-    if (!transactionData) return [] as Array<Record<string, string | number | null>>;
+    if (!filteredTransactionData) return [] as Array<Record<string, string | number | null>>;
     // Group by category/subcategory like the Categories view
     const grouped: Record<string, Record<string, any[]>> = Object.keys(CATEGORY_MAP).reduce(
       (acc, cat) => {
@@ -60,7 +151,7 @@ const Dashboard = () => {
       },
       {} as Record<string, Record<string, any[]>>,
     );
-    transactionData.transactions.forEach((t) => {
+    filteredTransactionData.transactions.forEach((t) => {
       const cat = t.category;
       const sub = t.subcategory && t.subcategory.trim() !== '' ? t.subcategory : 'direct';
       if (!grouped[cat]) grouped[cat] = {};
@@ -84,21 +175,24 @@ const Dashboard = () => {
           currency: t.currency,
         }),
       );
-      CATEGORY_MAP[cat as keyof typeof CATEGORY_MAP]?.subcategories.forEach((sub) => {
-        (subs[sub] || []).forEach((t) =>
-          rows.push({
-            category: cat,
-            subcategory: sub,
-            date: t.date,
-            description: t.description,
-            money_in: t.money_in || 0,
-            money_out: t.money_out || 0,
-            net: (t.money_in || 0) - (t.money_out || 0),
-            balance: t.balance,
-            currency: t.currency,
-          }),
-        );
-      });
+      const categoryData = CATEGORY_MAP[cat as keyof typeof CATEGORY_MAP];
+      if (categoryData && categoryData.subcategories) {
+        Object.keys(categoryData.subcategories).forEach((sub) => {
+          (subs[sub] || []).forEach((t: any) =>
+            rows.push({
+              category: cat,
+              subcategory: sub,
+              date: t.date,
+              description: t.description,
+              money_in: t.money_in || 0,
+              money_out: t.money_out || 0,
+              net: (t.money_in || 0) - (t.money_out || 0),
+              balance: t.balance,
+              currency: t.currency,
+            }),
+          );
+        });
+      }
     });
     return rows;
   };
@@ -106,7 +200,17 @@ const Dashboard = () => {
   const exportCSV = () => {
     const rows = buildExportRows();
     if (!rows.length) return;
-    const headers = ['category', 'subcategory', 'date', 'description', 'money_in', 'money_out', 'net', 'balance', 'currency'];
+    const headers = [
+      'category',
+      'subcategory',
+      'date',
+      'description',
+      'money_in',
+      'money_out',
+      'net',
+      'balance',
+      'currency',
+    ];
     const csv = [
       headers.join(','),
       ...rows.map((r) =>
@@ -125,13 +229,13 @@ const Dashboard = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `transactions_${transactionData?.bank}.csv`;
+    a.download = `transactions_${filteredTransactionData?.bank}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const exportPDF = () => {
-    if (!transactionData) return;
+    if (!filteredTransactionData) return;
     const w = window.open('', '_blank');
     if (!w) return;
     const fmt = (n: number) =>
@@ -168,7 +272,7 @@ const Dashboard = () => {
       },
       {} as Record<string, Record<string, any[]>>,
     );
-    transactionData.transactions.forEach((t) => {
+    filteredTransactionData.transactions.forEach((t) => {
       const cat = t.category;
       const sub = t.subcategory && t.subcategory.trim() !== '' ? t.subcategory : 'direct';
       if (!grouped[cat]) grouped[cat] = {};
@@ -177,7 +281,7 @@ const Dashboard = () => {
     });
     const generatedAt = new Date().toLocaleString('en-GB');
     let html = `<header>
-      <div class=\"title\">Transactions - ${transactionData.bank}</div>
+      <div class=\"title\">Transactions - ${filteredTransactionData.bank}</div>
       <div class=\"meta\">Generated: ${generatedAt}</div>
     </header>`;
     Object.keys(CATEGORY_MAP).forEach((cat) => {
@@ -224,37 +328,45 @@ const Dashboard = () => {
         </tr>`;
       });
       // subcategories
-      CATEGORY_MAP[cat as keyof typeof CATEGORY_MAP]?.subcategories.forEach((sub) => {
-        const txs = subs[sub] || [];
-        if (!txs.length) {
-          // show a muted subcategory row to keep structure
-          html += `<tr class=\"subrow\"><td></td><td colspan=\"6\" style=\"color:var(--muted)\">${sub} • No transactions</td></tr>`;
-          return;
-        }
-        const subt = txs.reduce(
-          (acc, t: any) => ({ totalIn: acc.totalIn + (t.money_in || 0), totalOut: acc.totalOut + (t.money_out || 0) }),
-          { totalIn: 0, totalOut: 0 },
-        );
-        const snet = subt.totalIn - subt.totalOut;
-        html += `<tr class=\"subrow\"><td></td><td colspan=\"2\" style=\"text-transform:capitalize\">${sub}</td><td class=\"right\"><span class=\"pos\">${fmt(subt.totalIn)}</span></td><td class=\"right\"><span class=\"neg\">-${fmt(subt.totalOut)}</span></td><td class=\"right\">${snet >= 0 ? `<span class=\"pos\">${fmt(snet)}</span>` : `<span class=\"neg\">${fmt(snet)}</span>`}</td><td></td></tr>`;
-        txs.forEach((t: any) => {
-          const netRow = (t.money_in || 0) - (t.money_out || 0);
-          html += `<tr>
-            <td>${new Date(t.date).toLocaleDateString('en-GB')}</td>
-            <td style=\"text-transform:capitalize\">${sub}</td>
-            <td class=\"desc\">${t.description}${t.note ? `<span class=\"note\">${t.note}</span>` : ''}</td>
-            <td class=\"right\">${t.money_in ? `<span class=\"pos\">${fmt(t.money_in)}</span>` : ''}</td>
-            <td class=\"right\">${t.money_out ? `<span class=\"neg\">-${fmt(t.money_out)}</span>` : ''}</td>
-            <td class=\"right\">${netRow >= 0 ? `<span class=\"pos\">${fmt(netRow)}</span>` : `<span class=\"neg\">${fmt(netRow)}</span>`}</td>
-            <td class=\"right\">${fmt(t.balance)}</td>
-          </tr>`;
+      const categoryData = CATEGORY_MAP[cat as keyof typeof CATEGORY_MAP];
+      if (categoryData && categoryData.subcategories) {
+        Object.keys(categoryData.subcategories).forEach((sub) => {
+          const txs = subs[sub] || [];
+          if (!txs.length) {
+            // show a muted subcategory row to keep structure
+            html += `<tr class=\"subrow\"><td></td><td colspan=\"6\" style=\"color:var(--muted)\">${sub} • No transactions</td></tr>`;
+            return;
+          }
+          const subt = txs.reduce(
+            (acc, t: any) => ({
+              totalIn: acc.totalIn + (t.money_in || 0),
+              totalOut: acc.totalOut + (t.money_out || 0),
+            }),
+            { totalIn: 0, totalOut: 0 },
+          );
+          const snet = subt.totalIn - subt.totalOut;
+          html += `<tr class=\"subrow\"><td></td><td colspan=\"2\" style=\"text-transform:capitalize\">${sub}</td><td class=\"right\"><span class=\"pos\">${fmt(subt.totalIn)}</span></td><td class=\"right\"><span class=\"neg\">-${fmt(subt.totalOut)}</span></td><td class=\"right\">${snet >= 0 ? `<span class=\"pos\">${fmt(snet)}</span>` : `<span class=\"neg\">${fmt(snet)}</span>`}</td><td></td></tr>`;
+          txs.forEach((t: any) => {
+            const netRow = (t.money_in || 0) - (t.money_out || 0);
+            html += `<tr>
+              <td>${new Date(t.date).toLocaleDateString('en-GB')}</td>
+              <td style=\"text-transform:capitalize\">${sub}</td>
+              <td class=\"desc\">${t.description}${t.note ? `<span class=\"note\">${t.note}</span>` : ''}</td>
+              <td class=\"right\">${t.money_in ? `<span class=\"pos\">${fmt(t.money_in)}</span>` : ''}</td>
+              <td class=\"right\">${t.money_out ? `<span class=\"neg\">-${fmt(t.money_out)}</span>` : ''}</td>
+              <td class=\"right\">${netRow >= 0 ? `<span class=\"pos\">${fmt(netRow)}</span>` : `<span class=\"neg\">${fmt(netRow)}</span>`}</td>
+              <td class=\"right\">${fmt(t.balance)}</td>
+            </tr>`;
+          });
         });
-      });
+      }
       // footer
       html += `<tr class=\"footer\"><td></td><td colspan=\"2\">Category totals</td><td class=\"right\"><span class=\"pos\">${fmt(totals.totalIn)}</span></td><td class=\"right\"><span class=\"neg\">-${fmt(totals.totalOut)}</span></td><td class=\"right\">${net >= 0 ? `<span class=\"pos\">${fmt(net)}</span>` : `<span class=\"neg\">${fmt(net)}</span>`}</td><td></td></tr>`;
       html += `</tbody></table></section>`;
     });
-    w.document.write(`<html><head><title>Transactions - ${transactionData.bank}</title>${styles}</head><body>${html}</body></html>`);
+    w.document.write(
+      `<html><head><title>Transactions - ${filteredTransactionData.bank}</title>${styles}</head><body>${html}</body></html>`,
+    );
     w.document.close();
     w.focus();
     w.print();
@@ -268,10 +380,18 @@ const Dashboard = () => {
         {transactionData && (
           <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1 }}>
             <ButtonGroup variant="contained" size="small">
-              <Button color="primary" onClick={exportCSV} startIcon={<IconifyIcon icon="material-symbols:table" />}>
+              <Button
+                color="primary"
+                onClick={exportCSV}
+                startIcon={<IconifyIcon icon="material-symbols:table" />}
+              >
                 Export CSV
               </Button>
-              <Button color="secondary" onClick={exportPDF} startIcon={<IconifyIcon icon="material-symbols:picture-as-pdf" />}>
+              <Button
+                color="secondary"
+                onClick={exportPDF}
+                startIcon={<IconifyIcon icon="material-symbols:picture-as-pdf" />}
+              >
                 Export PDF
               </Button>
             </ButtonGroup>
@@ -279,43 +399,54 @@ const Dashboard = () => {
         )}
       </Grid>
 
-      {/* ------------- Transaction Summary section ---------------- */}
-      {transactionData && (
+      {/* ------------- Bank Selector section ---------------- */}
+      {transactionData && bankData.length > 1 && (
         <Grid item xs={12}>
-          <TransactionSummary transactionData={transactionData} />
+          <BankSelector
+            banks={bankData}
+            selectedBank={selectedBank}
+            onBankChange={setSelectedBank}
+          />
+        </Grid>
+      )}
+
+      {/* ------------- Transaction Summary section ---------------- */}
+      {filteredTransactionData && (
+        <Grid item xs={12}>
+          <TransactionSummary transactionData={filteredTransactionData} />
         </Grid>
       )}
 
       {/* ------------- Transaction Categories section ---------------- */}
-      {transactionData && (
+      {filteredTransactionData && (
         <Grid item xs={12}>
-          <TransactionCategories transactionData={transactionData} />
+          <TransactionCategories transactionData={filteredTransactionData} />
         </Grid>
       )}
 
       {/* ------------- Income Verification (separate, above AML & Affordability) ---------------- */}
-      {transactionData && (
+      {filteredTransactionData && (
         <>
           <Grid item xs={12} md={6}>
-            <IncomeVerification transactionData={transactionData} />
+            <IncomeVerification transactionData={filteredTransactionData} />
           </Grid>
           <Grid item xs={12} md={6}>
-            <AffordabilityReport transactionData={transactionData} />
+            <AffordabilityReport transactionData={filteredTransactionData} />
           </Grid>
         </>
       )}
 
       {/* ------------- AML & Risk Indicators section (separate, after affordability) ------------- */}
-      {transactionData && (
+      {filteredTransactionData && (
         <Grid item xs={12}>
-          <AMLRiskIndicators transactionData={transactionData} />
+          <AMLRiskIndicators transactionData={filteredTransactionData} />
         </Grid>
       )}
 
       {/* ------------- Transaction Charts section ---------------- */}
-      {transactionData && (
+      {filteredTransactionData && (
         <Grid item xs={12}>
-          <TransactionCharts transactionData={transactionData} />
+          <TransactionCharts transactionData={filteredTransactionData} />
         </Grid>
       )}
 

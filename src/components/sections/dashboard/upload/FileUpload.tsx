@@ -4,13 +4,13 @@ import { useBreakpoints } from 'providers/useBreakpoints';
 import { useCallback, useState } from 'react';
 
 interface FileUploadProps {
-  onFileUpload: (file: File) => void;
+  onFileUpload: (files: File[]) => void;
   isUploading?: boolean;
 }
 
 const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { up } = useBreakpoints();
   const upSM = up('sm');
 
@@ -30,11 +30,13 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
       e.stopPropagation();
       setDragActive(false);
 
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        const file = e.dataTransfer.files[0];
-        if (file.type === 'application/pdf' || file.type.includes('image/')) {
-          setSelectedFile(file);
-          onFileUpload(file);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const files = Array.from(e.dataTransfer.files).filter(
+          (file) => file.type === 'application/pdf',
+        );
+        if (files.length > 0) {
+          setSelectedFiles(files);
+          onFileUpload(files);
         }
       }
     },
@@ -43,10 +45,12 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-        const file = e.target.files[0];
-        setSelectedFile(file);
-        onFileUpload(file);
+      if (e.target.files && e.target.files.length > 0) {
+        const files = Array.from(e.target.files).filter((file) => file.type === 'application/pdf');
+        if (files.length > 0) {
+          setSelectedFiles(files);
+          onFileUpload(files);
+        }
       }
     },
     [onFileUpload],
@@ -112,7 +116,9 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
                     color: 'text.primary',
                   }}
                 >
-                  {selectedFile ? selectedFile.name : 'Drop your file here or click to browse'}
+                  {selectedFiles.length > 0
+                    ? `${selectedFiles.length} PDF file${selectedFiles.length > 1 ? 's' : ''} selected`
+                    : 'Drop your PDF files here or click to browse'}
                 </Typography>
 
                 <Typography
@@ -121,11 +127,11 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
                     color: 'text.secondary',
                   }}
                 >
-                  Supports PDF and image files (PNG, JPG, JPEG)
+                  Supports PDF files only • Multiple files allowed
                 </Typography>
               </Stack>
 
-              {!selectedFile && (
+              {selectedFiles.length === 0 && (
                 <Button
                   variant="contained"
                   color="primary"
@@ -133,24 +139,53 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
                   startIcon={<IconifyIcon icon="material-symbols:upload" />}
                   disabled={isUploading}
                 >
-                  Choose File
+                  Choose Files
                 </Button>
               )}
 
-              {selectedFile && (
-                <Stack direction="row" spacing={2} alignItems="center">
+              {selectedFiles.length > 0 && (
+                <Stack spacing={2} alignItems="center">
                   <Typography variant="body2" color="success.main">
-                    ✓ File selected: {selectedFile.name}
+                    ✓ {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected
                   </Typography>
+                  <Stack spacing={1} sx={{ maxHeight: 120, overflowY: 'auto', width: '100%' }}>
+                    {selectedFiles.map((file, index) => (
+                      <Stack
+                        key={index}
+                        direction="row"
+                        spacing={2}
+                        alignItems="center"
+                        justifyContent="space-between"
+                      >
+                        <Typography variant="caption" sx={{ flex: 1, textAlign: 'left' }}>
+                          {file.name}
+                        </Typography>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const newFiles = selectedFiles.filter((_, i) => i !== index);
+                            setSelectedFiles(newFiles);
+                            if (newFiles.length > 0) {
+                              onFileUpload(newFiles);
+                            }
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </Stack>
+                    ))}
+                  </Stack>
                   <Button
                     variant="outlined"
                     size="small"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelectedFile(null);
+                      setSelectedFiles([]);
                     }}
                   >
-                    Remove
+                    Clear All
                   </Button>
                 </Stack>
               )}
@@ -160,7 +195,8 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
           <input
             id="file-upload"
             type="file"
-            accept=".pdf,.png,.jpg,.jpeg"
+            accept=".pdf"
+            multiple
             onChange={handleFileInput}
             style={{ display: 'none' }}
           />
@@ -180,7 +216,7 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
                   }}
                 />
                 <Typography variant="body2" color="primary.main">
-                  Processing file...
+                  Processing {selectedFiles.length > 1 ? 'files' : 'file'}...
                 </Typography>
               </Stack>
             </Box>
@@ -192,5 +228,3 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
 };
 
 export default FileUpload;
-
-

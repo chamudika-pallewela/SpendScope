@@ -1,11 +1,4 @@
-import {
-  Box,
-  Card,
-  CardContent,
-  Grid,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Box, Card, CardContent, Grid, Stack, Typography } from '@mui/material';
 import CardContainer from 'components/common/CardContainter';
 import ReactEchart from 'components/base/ReactEchart';
 import { TransactionResponse } from 'config/categories';
@@ -52,28 +45,34 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
     if (!transactionData) return null;
 
     // Group by category
-    const categoryData = transactionData.transactions.reduce((acc, transaction) => {
-      const category = transaction.category;
-      if (!acc[category]) {
-        acc[category] = { totalIn: 0, totalOut: 0, count: 0 };
-      }
-      acc[category].totalIn += transaction.money_in || 0;
-      acc[category].totalOut += transaction.money_out || 0;
-      acc[category].count += 1;
-      return acc;
-    }, {} as Record<string, { totalIn: number; totalOut: number; count: number }>);
+    const categoryData = transactionData.transactions.reduce(
+      (acc, transaction) => {
+        const category = transaction.category;
+        if (!acc[category]) {
+          acc[category] = { totalIn: 0, totalOut: 0, count: 0 };
+        }
+        acc[category].totalIn += transaction.money_in || 0;
+        acc[category].totalOut += transaction.money_out || 0;
+        acc[category].count += 1;
+        return acc;
+      },
+      {} as Record<string, { totalIn: number; totalOut: number; count: number }>,
+    );
 
     // Group by date for line chart
-    const dateData = transactionData.transactions.reduce((acc, transaction) => {
-      const date = transaction.date;
-      if (!acc[date]) {
-        acc[date] = { totalIn: 0, totalOut: 0, balance: 0 };
-      }
-      acc[date].totalIn += transaction.money_in || 0;
-      acc[date].totalOut += transaction.money_out || 0;
-      acc[date].balance = transaction.balance;
-      return acc;
-    }, {} as Record<string, { totalIn: number; totalOut: number; balance: number }>);
+    const dateData = transactionData.transactions.reduce(
+      (acc, transaction) => {
+        const date = transaction.date;
+        if (!acc[date]) {
+          acc[date] = { totalIn: 0, totalOut: 0, balance: 0 };
+        }
+        acc[date].totalIn += transaction.money_in || 0;
+        acc[date].totalOut += transaction.money_out || 0;
+        acc[date].balance = transaction.balance;
+        return acc;
+      },
+      {} as Record<string, { totalIn: number; totalOut: number; balance: number }>,
+    );
 
     return { categoryData, dateData };
   }, [transactionData]);
@@ -152,8 +151,8 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
     if (!chartData) return {};
 
     const categories = Object.keys(chartData.categoryData);
-    const moneyInData = categories.map(cat => chartData.categoryData[cat].totalIn);
-    const moneyOutData = categories.map(cat => chartData.categoryData[cat].totalOut);
+    const moneyInData = categories.map((cat) => chartData.categoryData[cat].totalIn);
+    const moneyOutData = categories.map((cat) => chartData.categoryData[cat].totalOut);
 
     return {
       title: {
@@ -190,7 +189,7 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
       },
       xAxis: {
         type: 'category',
-        data: categories.map(cat => cat.charAt(0).toUpperCase() + cat.slice(1)),
+        data: categories.map((cat) => cat.charAt(0).toUpperCase() + cat.slice(1)),
         axisLabel: {
           rotate: 45,
           fontSize: 10,
@@ -230,7 +229,7 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
     if (!chartData) return {};
 
     const sortedDates = Object.keys(chartData.dateData).sort();
-    const balanceData = sortedDates.map(date => chartData.dateData[date].balance);
+    const balanceData = sortedDates.map((date) => chartData.dateData[date].balance);
 
     return {
       title: {
@@ -257,7 +256,7 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
       },
       xAxis: {
         type: 'category',
-        data: sortedDates.map(date => new Date(date).toLocaleDateString('en-GB')),
+        data: sortedDates.map((date) => new Date(date).toLocaleDateString('en-GB')),
         axisLabel: {
           rotate: 45,
           fontSize: 10,
@@ -361,4 +360,3 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
 };
 
 export default TransactionCharts;
-

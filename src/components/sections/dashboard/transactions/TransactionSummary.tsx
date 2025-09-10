@@ -1,11 +1,4 @@
-import {
-  Box,
-  Card,
-  CardContent,
-  Grid,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Box, Card, CardContent, Grid, Stack, Typography } from '@mui/material';
 import IconifyIcon from 'components/base/IconifyIcon';
 import { TransactionResponse } from 'config/categories';
 import { useMemo } from 'react';
@@ -20,24 +13,28 @@ const TransactionSummary = ({ transactionData }: TransactionSummaryProps) => {
     if (!transactionData) return null;
 
     const transactions = transactionData.transactions;
-    
+
     const totalMoneyIn = transactions.reduce((sum, t) => sum + (t.money_in || 0), 0);
     const totalMoneyOut = transactions.reduce((sum, t) => sum + (t.money_out || 0), 0);
     const netAmount = totalMoneyIn - totalMoneyOut;
-    
+
     const totalTransactions = transactions.length;
-    const uniqueCategories = new Set(transactions.map(t => t.category)).size;
-    
+    const uniqueCategories = new Set(transactions.map((t) => t.category)).size;
+
     const currentBalance = transactions[transactions.length - 1]?.balance || 0;
     const startingBalance = transactions[0]?.balance || 0;
     const balanceChange = currentBalance - startingBalance;
-    
-    const avgTransactionAmount = totalTransactions > 0 ? (totalMoneyIn + totalMoneyOut) / totalTransactions : 0;
-    
-    const dateRange = transactions.length > 0 ? {
-      start: new Date(transactions[0].date),
-      end: new Date(transactions[transactions.length - 1].date),
-    } : null;
+
+    const avgTransactionAmount =
+      totalTransactions > 0 ? (totalMoneyIn + totalMoneyOut) / totalTransactions : 0;
+
+    const dateRange =
+      transactions.length > 0
+        ? {
+            start: new Date(transactions[0].date),
+            end: new Date(transactions[transactions.length - 1].date),
+          }
+        : null;
 
     return {
       totalMoneyIn,
@@ -175,12 +172,9 @@ const TransactionSummary = ({ transactionData }: TransactionSummaryProps) => {
                           justifyContent: 'center',
                         }}
                       >
-                        <IconifyIcon
-                          icon={card.icon}
-                          sx={{ color: 'white', fontSize: 24 }}
-                        />
+                        <IconifyIcon icon={card.icon} sx={{ color: 'white', fontSize: 24 }} />
                       </Box>
-                      
+
                       <Box>
                         <Typography
                           variant="h6"
@@ -214,21 +208,46 @@ const TransactionSummary = ({ transactionData }: TransactionSummaryProps) => {
           {latestMonthly && (
             <Box
               sx={{
-                backgroundColor: latestMonthly.severity === 'High' ? 'error.lighter' : latestMonthly.severity === 'Medium' ? 'warning.lighter' : 'success.lighter',
+                backgroundColor:
+                  latestMonthly.severity === 'High'
+                    ? 'error.lighter'
+                    : latestMonthly.severity === 'Medium'
+                      ? 'warning.lighter'
+                      : 'success.lighter',
                 borderRadius: 2,
                 p: 2,
                 border: '1px solid',
-                borderColor: latestMonthly.severity === 'High' ? 'error.main' : latestMonthly.severity === 'Medium' ? 'warning.main' : 'success.main',
+                borderColor:
+                  latestMonthly.severity === 'High'
+                    ? 'error.main'
+                    : latestMonthly.severity === 'Medium'
+                      ? 'warning.main'
+                      : 'success.main',
               }}
             >
               <Stack spacing={1}>
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <IconifyIcon
-                    icon={latestMonthly.severity === 'High' ? 'material-symbols:warning' : latestMonthly.severity === 'Medium' ? 'material-symbols:priority-high' : 'material-symbols:info'}
-                    sx={{ color: latestMonthly.severity === 'High' ? 'error.main' : latestMonthly.severity === 'Medium' ? 'warning.main' : 'success.main', fontSize: 20 }}
+                    icon={
+                      latestMonthly.severity === 'High'
+                        ? 'material-symbols:warning'
+                        : latestMonthly.severity === 'Medium'
+                          ? 'material-symbols:priority-high'
+                          : 'material-symbols:info'
+                    }
+                    sx={{
+                      color:
+                        latestMonthly.severity === 'High'
+                          ? 'error.main'
+                          : latestMonthly.severity === 'Medium'
+                            ? 'warning.main'
+                            : 'success.main',
+                      fontSize: 20,
+                    }}
                   />
                   <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                    Client Risk Score — {latestMonthly.monthKey}: {latestMonthly.score} ({latestMonthly.severity})
+                    Client Risk Score — {latestMonthly.monthKey}: {latestMonthly.score} (
+                    {latestMonthly.severity})
                   </Typography>
                 </Stack>
                 {latestMonthly.evidence.length > 0 && (
@@ -257,7 +276,9 @@ const TransactionSummary = ({ transactionData }: TransactionSummaryProps) => {
                   sx={{ color: 'primary.main', fontSize: 20 }}
                 />
                 <Typography variant="body2" color="text.secondary">
-                  <strong>Date Range:</strong> {summaryData.dateRange.start.toLocaleDateString('en-GB')} - {summaryData.dateRange.end.toLocaleDateString('en-GB')}
+                  <strong>Date Range:</strong>{' '}
+                  {summaryData.dateRange.start.toLocaleDateString('en-GB')} -{' '}
+                  {summaryData.dateRange.end.toLocaleDateString('en-GB')}
                 </Typography>
               </Stack>
             </Box>
@@ -269,4 +290,3 @@ const TransactionSummary = ({ transactionData }: TransactionSummaryProps) => {
 };
 
 export default TransactionSummary;
-

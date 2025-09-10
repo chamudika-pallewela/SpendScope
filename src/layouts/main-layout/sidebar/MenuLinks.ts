@@ -1,14 +1,5 @@
 import { SvgIconProps } from '@mui/material';
-import CreditCardIcon from 'components/icons/menu-icons/CreditCardIcon';
 import HomeIcon from 'components/icons/menu-icons/HomeIcon';
-import InvestIcon from 'components/icons/menu-icons/InvestIcon';
-import LoanIcon from 'components/icons/menu-icons/LoanIcon';
-import ServiceIcon from 'components/icons/menu-icons/ServiceIcon';
-import SettingsIcon from 'components/icons/menu-icons/SettingsIcon';
-import SignInIcon from 'components/icons/menu-icons/SignInIcon';
-import SignUpIcon from 'components/icons/menu-icons/SignUpIcon';
-import TransferIcon from 'components/icons/menu-icons/TransferIcon';
-import UserIcon from 'components/icons/menu-icons/UserIcon';
 
 export enum linkEnum {
   Dashboard = 'dashboard',
