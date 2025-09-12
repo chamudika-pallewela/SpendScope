@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import paths, { rootPaths } from './path';
+import ProtectedRoute from 'components/common/ProtectedRoute';
 
 /* ---------------- Lazy loads various components ------------------------- */
 const App = lazy(() => import('App'));
@@ -14,6 +15,11 @@ const LoginPage = lazy(() => import('pages/authentication/login'));
 const SignUpPage = lazy(() => import('pages/authentication/signup'));
 const ForgetPasswordPage = lazy(() => import('pages/authentication/forget-password'));
 const ResetPasswordPage = lazy(() => import('pages/authentication/reset-password'));
+const VerifyEmailPage = lazy(() => import('pages/authentication/verify-email'));
+
+const ProfilePage = lazy(() => import('pages/profile'));
+const UploadsPage = lazy(() => import('pages/uploads'));
+const UploadDetailPage = lazy(() => import('pages/uploads/[id]'));
 
 const NotFoundPage = lazy(() => import('pages/not-found'));
 /* -------------------------------------------------------------------------- */
@@ -32,11 +38,13 @@ export const routes = [
       {
         path: paths.default,
         element: (
-          <MainLayout>
-            <Suspense fallback={<LoadingProgress />}>
-              <Outlet />
-            </Suspense>
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <Suspense fallback={<LoadingProgress />}>
+                <Outlet />
+              </Suspense>
+            </MainLayout>
+          </ProtectedRoute>
         ),
         children: [
           {
@@ -46,6 +54,18 @@ export const routes = [
           {
             path: paths.transactions,
             element: <Dashboard />,
+          },
+          {
+            path: paths.profile,
+            element: <ProfilePage />,
+          },
+          {
+            path: paths.uploads,
+            element: <UploadsPage />,
+          },
+          {
+            path: paths.uploadDetail,
+            element: <UploadDetailPage />,
           },
         ],
       },
@@ -69,6 +89,10 @@ export const routes = [
             path: paths.resetPassword,
             element: <ResetPasswordPage />,
           },
+          {
+            path: paths.verifyEmail,
+            element: <VerifyEmailPage />,
+          },
         ],
       },
       {
@@ -91,5 +115,8 @@ export const routes = [
 const router = createBrowserRouter(routes, {
   basename: '/bankwise',
 });
+
+// Debug router
+console.log('Router created with basename:', '/bankwise');
 
 export default router;

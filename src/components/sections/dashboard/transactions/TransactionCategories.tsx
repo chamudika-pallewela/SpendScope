@@ -31,7 +31,6 @@ interface TransactionCategoriesProps {
 
 const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) => {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-  const [expandedSubcategories, setExpandedSubcategories] = useState<Set<string>>(new Set());
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [selectedSubsubcategory, setSelectedSubsubcategory] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(0);
@@ -105,15 +104,6 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
   };
 
   // Helper functions for managing expanded states
-  const toggleSubcategory = (subcategoryKey: string) => {
-    const newExpanded = new Set(expandedSubcategories);
-    if (newExpanded.has(subcategoryKey)) {
-      newExpanded.delete(subcategoryKey);
-    } else {
-      newExpanded.add(subcategoryKey);
-    }
-    setExpandedSubcategories(newExpanded);
-  };
 
   const toggleCategory = (category: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -395,18 +385,28 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                         <ListItemIcon>
                           <Box
                             sx={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: '50%',
-                              backgroundColor: categoryInfo?.color || 'grey.400',
+                              width: 40,
+                              height: 40,
+                              borderRadius: '12px',
+                              background: `linear-gradient(135deg, ${categoryInfo?.color || '#6B7280'} 0%, ${categoryInfo?.color || '#6B7280'}CC 100%)`,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
+                              boxShadow: `0 4px 12px ${categoryInfo?.color || '#6B7280'}40`,
+                              transition: 'all 0.2s ease-in-out',
+                              '&:hover': {
+                                transform: 'translateY(-1px)',
+                                boxShadow: `0 6px 16px ${categoryInfo?.color || '#6B7280'}50`,
+                              },
                             }}
                           >
                             <IconifyIcon
                               icon={categoryInfo?.icon || 'material-symbols:category'}
-                              sx={{ color: 'white', fontSize: 16 }}
+                              sx={{
+                                color: 'white',
+                                fontSize: 18,
+                                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
+                              }}
                             />
                           </Box>
                         </ListItemIcon>
@@ -530,33 +530,53 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                         sx={{
                           border: '1px solid',
                           borderColor: 'grey.200',
-                          borderRadius: 1,
-                          mb: 1,
+                          borderRadius: 2,
+                          mb: 2,
+                          p: 2,
                           opacity: hasTransactions ? 1 : 0.5,
+                          backgroundColor: 'common.white',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                          transition: 'all 0.2s ease-in-out',
                           '&:hover': {
                             backgroundColor: hasTransactions ? 'grey.50' : 'grey.100',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            transform: 'translateY(-1px)',
                           },
                         }}
                       >
                         <ListItemIcon>
                           <Box
                             sx={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: '50%',
-                              backgroundColor: hasTransactions
-                                ? categoryInfo?.color || 'grey.400'
-                                : 'grey.300',
+                              width: 48,
+                              height: 48,
+                              borderRadius: '16px',
+                              background: hasTransactions
+                                ? `linear-gradient(135deg, ${categoryInfo?.color || '#6B7280'} 0%, ${categoryInfo?.color || '#6B7280'}CC 100%)`
+                                : 'linear-gradient(135deg, #E5E7EB 0%, #D1D5DB 100%)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
+                              boxShadow: hasTransactions
+                                ? `0 6px 16px ${categoryInfo?.color || '#6B7280'}40`
+                                : '0 2px 4px rgba(0,0,0,0.1)',
+                              transition: 'all 0.3s ease-in-out',
+                              '&:hover': {
+                                transform: 'translateY(-2px) scale(1.05)',
+                                boxShadow: hasTransactions
+                                  ? `0 8px 24px ${categoryInfo?.color || '#6B7280'}50`
+                                  : '0 4px 8px rgba(0,0,0,0.15)',
+                              },
                             }}
                           >
                             <IconifyIcon
                               icon={categoryInfo?.icon || 'material-symbols:category'}
                               sx={{
-                                color: hasTransactions ? 'white' : 'grey.500',
-                                fontSize: 16,
+                                color: hasTransactions ? 'white' : '#9CA3AF',
+                                fontSize: 22,
+                                filter: hasTransactions
+                                  ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                                  : 'none',
+                                transition: 'all 0.3s ease-in-out',
                               }}
                             />
                           </Box>
@@ -708,31 +728,44 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                                         pl: 4,
                                         border: '1px solid',
                                         borderColor: isSelected ? 'primary.main' : 'grey.100',
-                                        borderRadius: 1,
-                                        mb: 0.5,
+                                        borderRadius: 1.5,
+                                        mb: 1,
+                                        p: 1.5,
                                         backgroundColor: isSelected
                                           ? 'primary.lighter'
                                           : 'transparent',
                                         opacity: hasTransactions ? 1 : 0.6,
+                                        transition: 'all 0.2s ease-in-out',
                                         '&:hover': {
                                           backgroundColor: isSelected
                                             ? 'primary.lighter'
                                             : 'grey.50',
+                                          transform: 'translateX(4px)',
                                         },
                                       }}
                                     >
-                                      <ListItemIcon sx={{ minWidth: 32 }}>
+                                      <ListItemIcon sx={{ minWidth: 40 }}>
                                         <Box
                                           sx={{
-                                            width: 24,
-                                            height: 24,
-                                            borderRadius: '50%',
-                                            backgroundColor: hasTransactions
-                                              ? categoryInfo?.color || 'grey.400'
-                                              : 'grey.300',
+                                            width: 32,
+                                            height: 32,
+                                            borderRadius: '10px',
+                                            background: hasTransactions
+                                              ? `linear-gradient(135deg, ${categoryInfo?.color || '#6B7280'}80 0%, ${categoryInfo?.color || '#6B7280'}60 100%)`
+                                              : 'linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%)',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
+                                            boxShadow: hasTransactions
+                                              ? `0 3px 8px ${categoryInfo?.color || '#6B7280'}30`
+                                              : '0 1px 3px rgba(0,0,0,0.1)',
+                                            transition: 'all 0.2s ease-in-out',
+                                            '&:hover': {
+                                              transform: 'translateY(-1px)',
+                                              boxShadow: hasTransactions
+                                                ? `0 4px 12px ${categoryInfo?.color || '#6B7280'}40`
+                                                : '0 2px 6px rgba(0,0,0,0.15)',
+                                            },
                                           }}
                                         >
                                           <IconifyIcon
@@ -741,8 +774,11 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                                               'material-symbols:category'
                                             }
                                             sx={{
-                                              color: hasTransactions ? 'white' : 'grey.500',
-                                              fontSize: 12,
+                                              color: hasTransactions ? 'white' : '#9CA3AF',
+                                              fontSize: 14,
+                                              filter: hasTransactions
+                                                ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))'
+                                                : 'none',
                                             }}
                                           />
                                         </Box>
@@ -903,24 +939,42 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                                                       borderColor: 'grey.100',
                                                       borderRadius: 1,
                                                       mb: 0.5,
+                                                      p: 1,
                                                       backgroundColor: hasSubsubTransactions
                                                         ? 'grey.25'
                                                         : 'grey.50',
                                                       opacity: hasSubsubTransactions ? 1 : 0.7,
+                                                      transition: 'all 0.2s ease-in-out',
+                                                      '&:hover': {
+                                                        backgroundColor: hasSubsubTransactions
+                                                          ? 'grey.50'
+                                                          : 'grey.100',
+                                                        transform: 'translateX(2px)',
+                                                      },
                                                     }}
                                                   >
                                                     <ListItemIcon>
                                                       <Box
                                                         sx={{
-                                                          width: 24,
-                                                          height: 24,
-                                                          borderRadius: '50%',
-                                                          backgroundColor: hasSubsubTransactions
-                                                            ? 'primary.main'
-                                                            : 'grey.300',
+                                                          width: 28,
+                                                          height: 28,
+                                                          borderRadius: '8px',
+                                                          background: hasSubsubTransactions
+                                                            ? `linear-gradient(135deg, ${categoryInfo?.color || '#6366F1'}60 0%, ${categoryInfo?.color || '#6366F1'}40 100%)`
+                                                            : 'linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%)',
                                                           display: 'flex',
                                                           alignItems: 'center',
                                                           justifyContent: 'center',
+                                                          boxShadow: hasSubsubTransactions
+                                                            ? `0 2px 6px ${categoryInfo?.color || '#6366F1'}25`
+                                                            : '0 1px 2px rgba(0,0,0,0.1)',
+                                                          transition: 'all 0.2s ease-in-out',
+                                                          '&:hover': {
+                                                            transform: 'translateY(-1px)',
+                                                            boxShadow: hasSubsubTransactions
+                                                              ? `0 3px 8px ${categoryInfo?.color || '#6366F1'}35`
+                                                              : '0 2px 4px rgba(0,0,0,0.15)',
+                                                          },
                                                         }}
                                                       >
                                                         <IconifyIcon
@@ -931,8 +985,11 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                                                           sx={{
                                                             color: hasSubsubTransactions
                                                               ? 'white'
-                                                              : 'grey.500',
-                                                            fontSize: 10,
+                                                              : '#9CA3AF',
+                                                            fontSize: 12,
+                                                            filter: hasSubsubTransactions
+                                                              ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))'
+                                                              : 'none',
                                                           }}
                                                         />
                                                       </Box>

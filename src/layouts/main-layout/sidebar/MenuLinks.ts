@@ -1,8 +1,12 @@
 import { SvgIconProps } from '@mui/material';
 import HomeIcon from 'components/icons/menu-icons/HomeIcon';
+import UserIcon from 'components/icons/menu-icons/UserIcon';
+import TransferIcon from 'components/icons/menu-icons/TransferIcon';
 
 export enum linkEnum {
   Dashboard = 'dashboard',
+  Profile = 'profile',
+  Uploads = 'uploads',
   // Transactions = 'transactions',
   // Accounts = 'accounts',
   // Investments = 'investments',
@@ -29,6 +33,20 @@ export const menuLinks: MenuLinkType[] = [
     title: linkEnum.Dashboard,
     link: '/',
     icon: HomeIcon,
+    available: true,
+  },
+  {
+    id: 2,
+    title: linkEnum.Profile,
+    link: '/profile',
+    icon: UserIcon,
+    available: true,
+  },
+  {
+    id: 3,
+    title: linkEnum.Uploads,
+    link: '/uploads',
+    icon: TransferIcon,
     available: true,
   },
   // {

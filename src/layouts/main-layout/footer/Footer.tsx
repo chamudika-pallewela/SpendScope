@@ -1,5 +1,4 @@
 import { Box, Container, Grid, Link, Stack, Typography } from '@mui/material';
-import IconifyIcon from 'components/base/IconifyIcon';
 
 /* ----------------  Links Data  ------------------------------ */
 const data = [

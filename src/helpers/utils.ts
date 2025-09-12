@@ -219,8 +219,6 @@ export function analyzeRisks(transactions: Transaction[]): {
     }
 
     if (score > 100) score = 100;
-    const severity: RiskSeverity =
-      score >= 60 ? 'High' : score >= 30 ? 'Medium' : score > 0 ? 'Low' : 'None';
     monthlyMap.set(monthKey, { ...m, evidence, score });
   }
 

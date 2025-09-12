@@ -1,8 +1,8 @@
 // Category mapping with icons and colors
 export const CATEGORY_MAP = {
   'Essential Living Costs': {
-    icon: 'material-symbols:home-app-logo',
-    color: '#1E88E5',
+    icon: 'material-symbols:home-work',
+    color: '#6366F1', // Modern indigo
     subcategories: {
       'Housing & Utilities': [
         'Rent / Mortgage payments',
@@ -21,8 +21,8 @@ export const CATEGORY_MAP = {
     },
   },
   'Transport & Travel': {
-    icon: 'material-symbols:directions-car',
-    color: '#43A047',
+    icon: 'material-symbols:local-taxi',
+    color: '#059669', // Modern emerald
     subcategories: {
       'Fuel / Petrol / Diesel': [],
       'Public transport (bus, train, rail, underground)': [],
@@ -34,7 +34,7 @@ export const CATEGORY_MAP = {
   },
   'Family & Dependents': {
     icon: 'material-symbols:family-restroom',
-    color: '#8E24AA',
+    color: '#7C3AED', // Modern violet
     subcategories: {
       'Childcare / Nursery / Babysitting': [],
       'School fees / Tuition': [],
@@ -44,8 +44,8 @@ export const CATEGORY_MAP = {
     },
   },
   'Financial Commitments': {
-    icon: 'material-symbols:credit-card',
-    color: '#EF6C00',
+    icon: 'material-symbols:account-balance-wallet',
+    color: '#DC2626', // Modern red
     subcategories: {
       'Credit card payments': [],
       'Personal loans / HP agreements': [],
@@ -57,7 +57,7 @@ export const CATEGORY_MAP = {
   },
   'Lifestyle & Discretionary': {
     icon: 'material-symbols:celebration',
-    color: '#D81B60',
+    color: '#EA580C', // Modern orange
     subcategories: {
       Entertainment: [],
       'Subscriptions / Memberships': [],
@@ -74,7 +74,7 @@ export const CATEGORY_MAP = {
   },
   'Income Categories': {
     icon: 'material-symbols:trending-up',
-    color: '#4CAF50',
+    color: '#16A34A', // Modern green
     subcategories: {
       'Salary (PAYE)': [],
       'Self-employment income': [],
@@ -88,14 +88,14 @@ export const CATEGORY_MAP = {
 // Subcategory icon mapping
 export const SUBCATEGORY_ICONS: Record<string, string> = {
   // Essential Living Costs - Housing & Utilities
-  'Housing & Utilities': 'material-symbols:home',
-  'Rent / Mortgage payments': 'material-symbols:home',
+  'Housing & Utilities': 'material-symbols:home-filled',
+  'Rent / Mortgage payments': 'material-symbols:home-filled',
   'Council Tax': 'material-symbols:account-balance',
   Electricity: 'material-symbols:bolt',
   Gas: 'material-symbols:local-fire-department',
   'Electricity and Gas': 'material-symbols:electrical-services',
-  Water: 'material-symbols:water',
-  'Internet / Telephone / TV': 'material-symbols:router',
+  Water: 'material-symbols:water-drop',
+  'Internet / Telephone / TV': 'material-symbols:wifi',
 
   // Essential Living Costs - Food & Household
   'Food & Household': 'material-symbols:shopping-cart',
@@ -104,7 +104,7 @@ export const SUBCATEGORY_ICONS: Record<string, string> = {
   'Dining / Takeaway / Restaurants': 'material-symbols:restaurant',
 
   // Transport & Travel
-  'Transport & Travel': 'material-symbols:directions-car',
+  'Transport & Travel': 'material-symbols:local-taxi',
   'Fuel / Petrol / Diesel': 'material-symbols:local-gas-station',
   'Public transport (bus, train, rail, underground)': 'material-symbols:directions-subway',
   'Taxis / Ride-hailing (Uber, PickMe, Bolt, etc.)': 'material-symbols:local-taxi',
@@ -121,7 +121,7 @@ export const SUBCATEGORY_ICONS: Record<string, string> = {
   'Elderly care / Family support payments': 'material-symbols:diversity-3',
 
   // Financial Commitments
-  'Financial Commitments': 'material-symbols:credit-card',
+  'Financial Commitments': 'material-symbols:account-balance-wallet',
   'Credit card payments': 'material-symbols:credit-card',
   'Personal loans / HP agreements': 'material-symbols:request-quote',
   'Overdraft fees': 'material-symbols:savings',

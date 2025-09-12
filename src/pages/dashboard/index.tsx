@@ -1,10 +1,4 @@
 import { Grid, Stack, Button, ButtonGroup } from '@mui/material';
-import WeeklyActivity from 'components/sections/dashboard/activity/WeeklyActivity';
-import BalanceHistory from 'components/sections/dashboard/balance/BalanceHistory';
-// import MyCards from 'components/sections/dashboard/creditCards/MyCards';
-import ExpenseStatistics from 'components/sections/dashboard/expense/ExpenseStatistics';
-import InvoiceOverviewTable from 'components/sections/dashboard/invoice/InvoiceOverviewTable';
-import RecentTransactions from 'components/sections/dashboard/transactions/RecentTransaction';
 import TransactionCategories from 'components/sections/dashboard/transactions/TransactionCategories';
 import TransactionCharts from 'components/sections/dashboard/transactions/TransactionCharts';
 import AffordabilityReport from 'components/sections/dashboard/transactions/AffordabilityReport';
@@ -13,17 +7,19 @@ import AMLRiskIndicators from 'components/sections/dashboard/transactions/AMLRis
 import BankSelector, { BankData } from 'components/sections/dashboard/transactions/BankSelector';
 import IconifyIcon from 'components/base/IconifyIcon';
 import TransactionSummary from 'components/sections/dashboard/transactions/TransactionSummary';
-import QuickTransfer from 'components/sections/dashboard/transfer/QuickTransfer';
 import FileUpload from 'components/sections/dashboard/upload/FileUpload';
 import { buildApiUrl } from 'config/api';
 import { TransactionResponse, CATEGORY_MAP } from 'config/categories';
 import { useState, useMemo } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { saveUpload } from '../../services/uploadService';
 
 const Dashboard = () => {
   const [transactionData, setTransactionData] = useState<TransactionResponse | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
-  const [originalApiResponse, setOriginalApiResponse] = useState<any>(null);
+  const [originalApiResponse, setOriginalApiResponse] = useState<unknown>(null);
+  const { currentUser } = useAuth();
 
   const handleFileUpload = async (files: File[]) => {
     setIsUploading(true);
@@ -48,11 +44,73 @@ const Dashboard = () => {
       // Store the original API response for bank data extraction
       setOriginalApiResponse(result);
 
+      // Save the upload to Firebase if user is logged in
+      if (currentUser) {
+        try {
+          // Extract customer name and date range from the response
+          let customerName = 'Unknown Customer';
+          const dateRange = { start: '', end: '' };
+          let bank = 'Unknown Bank';
+
+          if (result.results && result.results.length > 0) {
+            const firstResult = result.results[0];
+            customerName =
+              firstResult.customer_name || firstResult.customerName || 'Unknown Customer';
+            bank = files.length > 1 ? `Multiple Banks (${files.length} files)` : firstResult.bank;
+
+            // Extract date range from transactions
+            const allTransactions = result.results.flatMap(
+              (fileResult: { transactions: Array<{ date?: string; transaction_date?: string }> }) =>
+                fileResult.transactions || [],
+            );
+
+            if (allTransactions.length > 0) {
+              const dates = allTransactions
+                .map(
+                  (t: { date?: string; transaction_date?: string }) =>
+                    new Date(t.date || t.transaction_date || ''),
+                )
+                .filter((date: Date) => !isNaN(date.getTime()))
+                .sort((a: Date, b: Date) => a.getTime() - b.getTime());
+
+              if (dates.length > 0) {
+                dateRange.start = dates[0].toISOString().split('T')[0];
+                dateRange.end = dates[dates.length - 1].toISOString().split('T')[0];
+              }
+            }
+          } else if (result.transactions) {
+            customerName = result.customer_name || result.customerName || 'Unknown Customer';
+            bank = result.bank;
+
+            // Extract date range from transactions
+            const dates = result.transactions
+              .map(
+                (t: { date?: string; transaction_date?: string }) =>
+                  new Date(t.date || t.transaction_date || ''),
+              )
+              .filter((date: Date) => !isNaN(date.getTime()))
+              .sort((a: Date, b: Date) => a.getTime() - b.getTime());
+
+            if (dates.length > 0) {
+              dateRange.start = dates[0].toISOString().split('T')[0];
+              dateRange.end = dates[dates.length - 1].toISOString().split('T')[0];
+            }
+          }
+
+          // Save to Firebase
+          await saveUpload(currentUser.uid, customerName, bank, dateRange, result);
+          console.log('Upload saved successfully');
+        } catch (saveError) {
+          console.error('Error saving upload:', saveError);
+          // Don't fail the upload if saving fails
+        }
+      }
+
       // Handle the response format
       if (result.results && result.results.length > 0) {
         // Handle multiple files response format
         const allTransactions = result.results.flatMap(
-          (fileResult: any) => fileResult.transactions,
+          (fileResult: { transactions: unknown[] }) => fileResult.transactions,
         );
         const firstResult = result.results[0];
 
@@ -89,7 +147,7 @@ const Dashboard = () => {
 
     // Try to extract customer names from the original API response structure
     // This assumes the API response has the structure you showed with results array
-    const originalResults = originalApiResponse?.results || [];
+    const originalResults = (originalApiResponse as { results?: unknown[] })?.results || [];
 
     transactionData.transactions.forEach((transaction) => {
       const bankName = transaction.bank;
@@ -98,7 +156,9 @@ const Dashboard = () => {
         existing.transactionCount += 1;
       } else {
         // Try to find customer name from original results
-        const originalResult = originalResults.find((result: any) => result.bank === bankName);
+        const originalResult = originalResults.find(
+          (result: unknown) => (result as { bank: string }).bank === bankName,
+        ) as { customer_name?: string } | undefined;
         const customerName = originalResult?.customer_name || 'Customer';
 
         bankMap.set(bankName, {
@@ -144,12 +204,12 @@ const Dashboard = () => {
   const buildExportRows = () => {
     if (!filteredTransactionData) return [] as Array<Record<string, string | number | null>>;
     // Group by category/subcategory like the Categories view
-    const grouped: Record<string, Record<string, any[]>> = Object.keys(CATEGORY_MAP).reduce(
+    const grouped: Record<string, Record<string, unknown[]>> = Object.keys(CATEGORY_MAP).reduce(
       (acc, cat) => {
         acc[cat] = {};
         return acc;
       },
-      {} as Record<string, Record<string, any[]>>,
+      {} as Record<string, Record<string, unknown[]>>,
     );
     filteredTransactionData.transactions.forEach((t) => {
       const cat = t.category;
@@ -162,35 +222,51 @@ const Dashboard = () => {
     Object.keys(CATEGORY_MAP).forEach((cat) => {
       const subs = grouped[cat] || {};
       const direct = subs['direct'] || [];
-      direct.forEach((t) =>
+      direct.forEach((t) => {
+        const transaction = t as {
+          date: string;
+          description: string;
+          money_in?: number;
+          money_out?: number;
+          balance: number;
+          currency: string;
+        };
         rows.push({
           category: cat,
           subcategory: '',
-          date: t.date,
-          description: t.description,
-          money_in: t.money_in || 0,
-          money_out: t.money_out || 0,
-          net: (t.money_in || 0) - (t.money_out || 0),
-          balance: t.balance,
-          currency: t.currency,
-        }),
-      );
+          date: transaction.date,
+          description: transaction.description,
+          money_in: transaction.money_in || 0,
+          money_out: transaction.money_out || 0,
+          net: (transaction.money_in || 0) - (transaction.money_out || 0),
+          balance: transaction.balance,
+          currency: transaction.currency,
+        });
+      });
       const categoryData = CATEGORY_MAP[cat as keyof typeof CATEGORY_MAP];
       if (categoryData && categoryData.subcategories) {
         Object.keys(categoryData.subcategories).forEach((sub) => {
-          (subs[sub] || []).forEach((t: any) =>
+          (subs[sub] || []).forEach((t: unknown) => {
+            const transaction = t as {
+              date: string;
+              description: string;
+              money_in?: number;
+              money_out?: number;
+              balance: number;
+              currency: string;
+            };
             rows.push({
               category: cat,
               subcategory: sub,
-              date: t.date,
-              description: t.description,
-              money_in: t.money_in || 0,
-              money_out: t.money_out || 0,
-              net: (t.money_in || 0) - (t.money_out || 0),
-              balance: t.balance,
-              currency: t.currency,
-            }),
-          );
+              date: transaction.date,
+              description: transaction.description,
+              money_in: transaction.money_in || 0,
+              money_out: transaction.money_out || 0,
+              net: (transaction.money_in || 0) - (transaction.money_out || 0),
+              balance: transaction.balance,
+              currency: transaction.currency,
+            });
+          });
         });
       }
     });
@@ -265,12 +341,12 @@ const Dashboard = () => {
         @media print { thead { display: table-header-group; } }
       </style>`;
     // Build grouped like above
-    const grouped: Record<string, Record<string, any[]>> = Object.keys(CATEGORY_MAP).reduce(
+    const grouped: Record<string, Record<string, unknown[]>> = Object.keys(CATEGORY_MAP).reduce(
       (acc, cat) => {
         acc[cat] = {};
         return acc;
       },
-      {} as Record<string, Record<string, any[]>>,
+      {} as Record<string, Record<string, unknown[]>>,
     );
     filteredTransactionData.transactions.forEach((t) => {
       const cat = t.category;
@@ -281,50 +357,58 @@ const Dashboard = () => {
     });
     const generatedAt = new Date().toLocaleString('en-GB');
     let html = `<header>
-      <div class=\"title\">Transactions - ${filteredTransactionData.bank}</div>
-      <div class=\"meta\">Generated: ${generatedAt}</div>
+      <div class="title">Transactions - ${filteredTransactionData.bank}</div>
+      <div class="meta">Generated: ${generatedAt}</div>
     </header>`;
     Object.keys(CATEGORY_MAP).forEach((cat) => {
       const color = CATEGORY_MAP[cat as keyof typeof CATEGORY_MAP]?.color || '#64748b';
       const subs = grouped[cat] || {};
       const allTx = Object.values(subs).flat();
       const totals = allTx.reduce(
-        (acc, t: any) => ({
-          totalIn: acc.totalIn + (t.money_in || 0),
-          totalOut: acc.totalOut + (t.money_out || 0),
+        (acc: { totalIn: number; totalOut: number }, t: unknown) => ({
+          totalIn: acc.totalIn + ((t as { money_in?: number }).money_in || 0),
+          totalOut: acc.totalOut + ((t as { money_out?: number }).money_out || 0),
         }),
         { totalIn: 0, totalOut: 0 },
       );
       const net = totals.totalIn - totals.totalOut;
-      html += `<section class=\"category\">`;
-      html += `<div class=\"cat-header\" style=\"background:${color}\">`;
-      html += `<div style=\"text-transform:capitalize\">${cat}</div>`;
-      html += `<div class=\"totals\"><span class=\"pos\">${fmt(totals.totalIn)}</span> &nbsp;|&nbsp; <span class=\"neg\">-${fmt(totals.totalOut)}</span> &nbsp;|&nbsp; ${fmt(net)}</div>`;
+      html += `<section class="category">`;
+      html += `<div class="cat-header" style="background:${color}">`;
+      html += `<div style="text-transform:capitalize">${cat}</div>`;
+      html += `<div class="totals"><span class="pos">${fmt(totals.totalIn)}</span> &nbsp;|&nbsp; <span class="neg">-${fmt(totals.totalOut)}</span> &nbsp;|&nbsp; ${fmt(net)}</div>`;
       html += `</div>`;
       html += `<table>
         <thead>
           <tr>
-            <th style=\"width:90px\">Date</th>
+            <th style="width:90px">Date</th>
             <th>Subcategory</th>
             <th>Description</th>
-            <th class=\"right\">Money In</th>
-            <th class=\"right\">Money Out</th>
-            <th class=\"right\">Net</th>
-            <th class=\"right\">Balance</th>
+            <th class="right">Money In</th>
+            <th class="right">Money Out</th>
+            <th class="right">Net</th>
+            <th class="right">Balance</th>
           </tr>
         </thead>
         <tbody>`;
       // direct
-      (subs['direct'] || []).forEach((t: any) => {
-        const netRow = (t.money_in || 0) - (t.money_out || 0);
+      (subs['direct'] || []).forEach((t: unknown) => {
+        const transaction = t as {
+          money_in?: number;
+          money_out?: number;
+          date: string;
+          description: string;
+          note?: string;
+          balance: number;
+        };
+        const netRow = (transaction.money_in || 0) - (transaction.money_out || 0);
         html += `<tr>
-          <td>${new Date(t.date).toLocaleDateString('en-GB')}</td>
+          <td>${new Date(transaction.date).toLocaleDateString('en-GB')}</td>
           <td></td>
-          <td class=\"desc\">${t.description}${t.note ? `<span class=\"note\">${t.note}</span>` : ''}</td>
-          <td class=\"right\">${t.money_in ? `<span class=\"pos\">${fmt(t.money_in)}</span>` : ''}</td>
-          <td class=\"right\">${t.money_out ? `<span class=\"neg\">-${fmt(t.money_out)}</span>` : ''}</td>
-          <td class=\"right\">${netRow >= 0 ? `<span class=\"pos\">${fmt(netRow)}</span>` : `<span class=\"neg\">${fmt(netRow)}</span>`}</td>
-          <td class=\"right\">${fmt(t.balance)}</td>
+          <td class="desc">${transaction.description}${transaction.note ? `<span class="note">${transaction.note}</span>` : ''}</td>
+          <td class="right">${transaction.money_in ? `<span class="pos">${fmt(transaction.money_in)}</span>` : ''}</td>
+          <td class="right">${transaction.money_out ? `<span class="neg">-${fmt(transaction.money_out)}</span>` : ''}</td>
+          <td class="right">${netRow >= 0 ? `<span class="pos">${fmt(netRow)}</span>` : `<span class="neg">${fmt(netRow)}</span>`}</td>
+          <td class="right">${fmt(transaction.balance)}</td>
         </tr>`;
       });
       // subcategories
@@ -334,34 +418,42 @@ const Dashboard = () => {
           const txs = subs[sub] || [];
           if (!txs.length) {
             // show a muted subcategory row to keep structure
-            html += `<tr class=\"subrow\"><td></td><td colspan=\"6\" style=\"color:var(--muted)\">${sub} • No transactions</td></tr>`;
+            html += `<tr class="subrow"><td></td><td colspan="6" style="color:var(--muted)">${sub} • No transactions</td></tr>`;
             return;
           }
           const subt = txs.reduce(
-            (acc, t: any) => ({
-              totalIn: acc.totalIn + (t.money_in || 0),
-              totalOut: acc.totalOut + (t.money_out || 0),
+            (acc: { totalIn: number; totalOut: number }, t: unknown) => ({
+              totalIn: acc.totalIn + ((t as { money_in?: number }).money_in || 0),
+              totalOut: acc.totalOut + ((t as { money_out?: number }).money_out || 0),
             }),
             { totalIn: 0, totalOut: 0 },
           );
           const snet = subt.totalIn - subt.totalOut;
-          html += `<tr class=\"subrow\"><td></td><td colspan=\"2\" style=\"text-transform:capitalize\">${sub}</td><td class=\"right\"><span class=\"pos\">${fmt(subt.totalIn)}</span></td><td class=\"right\"><span class=\"neg\">-${fmt(subt.totalOut)}</span></td><td class=\"right\">${snet >= 0 ? `<span class=\"pos\">${fmt(snet)}</span>` : `<span class=\"neg\">${fmt(snet)}</span>`}</td><td></td></tr>`;
-          txs.forEach((t: any) => {
-            const netRow = (t.money_in || 0) - (t.money_out || 0);
+          html += `<tr class="subrow"><td></td><td colspan="2" style="text-transform:capitalize">${sub}</td><td class="right"><span class="pos">${fmt(subt.totalIn)}</span></td><td class="right"><span class="neg">-${fmt(subt.totalOut)}</span></td><td class="right">${snet >= 0 ? `<span class="pos">${fmt(snet)}</span>` : `<span class="neg">${fmt(snet)}</span>`}</td><td></td></tr>`;
+          txs.forEach((t: unknown) => {
+            const transaction = t as {
+              money_in?: number;
+              money_out?: number;
+              date: string;
+              description: string;
+              note?: string;
+              balance: number;
+            };
+            const netRow = (transaction.money_in || 0) - (transaction.money_out || 0);
             html += `<tr>
-              <td>${new Date(t.date).toLocaleDateString('en-GB')}</td>
-              <td style=\"text-transform:capitalize\">${sub}</td>
-              <td class=\"desc\">${t.description}${t.note ? `<span class=\"note\">${t.note}</span>` : ''}</td>
-              <td class=\"right\">${t.money_in ? `<span class=\"pos\">${fmt(t.money_in)}</span>` : ''}</td>
-              <td class=\"right\">${t.money_out ? `<span class=\"neg\">-${fmt(t.money_out)}</span>` : ''}</td>
-              <td class=\"right\">${netRow >= 0 ? `<span class=\"pos\">${fmt(netRow)}</span>` : `<span class=\"neg\">${fmt(netRow)}</span>`}</td>
-              <td class=\"right\">${fmt(t.balance)}</td>
+              <td>${new Date(transaction.date).toLocaleDateString('en-GB')}</td>
+              <td style="text-transform:capitalize">${sub}</td>
+              <td class="desc">${transaction.description}${transaction.note ? `<span class="note">${transaction.note}</span>` : ''}</td>
+              <td class="right">${transaction.money_in ? `<span class="pos">${fmt(transaction.money_in)}</span>` : ''}</td>
+              <td class="right">${transaction.money_out ? `<span class="neg">-${fmt(transaction.money_out)}</span>` : ''}</td>
+              <td class="right">${netRow >= 0 ? `<span class="pos">${fmt(netRow)}</span>` : `<span class="neg">${fmt(netRow)}</span>`}</td>
+              <td class="right">${fmt(transaction.balance)}</td>
             </tr>`;
           });
         });
       }
       // footer
-      html += `<tr class=\"footer\"><td></td><td colspan=\"2\">Category totals</td><td class=\"right\"><span class=\"pos\">${fmt(totals.totalIn)}</span></td><td class=\"right\"><span class=\"neg\">-${fmt(totals.totalOut)}</span></td><td class=\"right\">${net >= 0 ? `<span class=\"pos\">${fmt(net)}</span>` : `<span class=\"neg\">${fmt(net)}</span>`}</td><td></td></tr>`;
+      html += `<tr class="footer"><td></td><td colspan="2">Category totals</td><td class="right"><span class="pos">${fmt(totals.totalIn)}</span></td><td class="right"><span class="neg">-${fmt(totals.totalOut)}</span></td><td class="right">${net >= 0 ? `<span class="pos">${fmt(net)}</span>` : `<span class="neg">${fmt(net)}</span>`}</td><td></td></tr>`;
       html += `</tbody></table></section>`;
     });
     w.document.write(

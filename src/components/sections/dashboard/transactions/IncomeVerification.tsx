@@ -112,19 +112,6 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
   const fmt = (n: number) =>
     new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(n);
 
-  const kpis = useMemo(() => {
-    const mainTypes = Array.from(new Set(sources.map((s) => s.sourceType)));
-    const mainSources = mainTypes.slice(0, 3).join(', ') + (mainTypes.length > 3 ? '…' : '') || '—';
-    const regularCount = sources.filter((s) => s.frequency === 'monthly').length;
-    const irregularCount = sources.filter((s) => s.frequency === 'irregular').length;
-    const suddenFlags = sources.reduce(
-      (acc, s) => acc + s.flags.filter((f) => /increased/i.test(f)).length,
-      0,
-    );
-    const avgMonthlyIncome = sources.reduce((acc, s) => acc + s.averageAmount, 0);
-    return { mainSources, regularCount, irregularCount, suddenFlags, avgMonthlyIncome };
-  }, [sources]);
-
   return (
     <Box sx={{ mt: 2, height: '100%', display: 'flex' }}>
       <Box

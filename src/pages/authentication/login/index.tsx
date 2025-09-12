@@ -1,8 +1,39 @@
-import { Box, Button, Card, Container, Divider, Link, Stack, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Card,
+  Container,
+  Divider,
+  Link,
+  Stack,
+  Typography,
+  Alert,
+} from '@mui/material';
 import IconifyIcon from 'components/base/IconifyIcon';
 import LoginForm from 'components/sections/authentication/LoginForm';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const LoginPage = () => {
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { loginWithGoogle } = useAuth();
+  const navigate = useNavigate();
+
+  const handleGoogleLogin = async () => {
+    try {
+      setError('');
+      setLoading(true);
+      await loginWithGoogle();
+      navigate('/');
+    } catch (error: unknown) {
+      setError((error as Error).message || 'Failed to sign in with Google');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -29,7 +60,7 @@ const LoginPage = () => {
                 fontSize: { xs: 'subtitle1.fontSize', sm: 'body2.fontSize' },
               }}
             >
-              Don’t have an account?
+              Don't have an account?
               <Link
                 href="/authentication/sign-up"
                 variant="subtitle2"
@@ -39,16 +70,23 @@ const LoginPage = () => {
               </Link>
             </Typography>
 
-            <Stack direction="row" spacing={{ xs: 1, sm: 2 }}>
-              <Button fullWidth size="large" color="neutral" variant="outlined" sx={{ p: 1 }}>
-                <IconifyIcon icon="eva:google-fill" color="error.main" />
-              </Button>
-              <Button fullWidth size="large" color="neutral" variant="outlined" sx={{ p: 1 }}>
-                <IconifyIcon icon="gg:facebook" color="primary.main" width={22} />
-              </Button>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
 
-              <Button fullWidth size="large" color="neutral" variant="outlined" sx={{ p: 1 }}>
-                <IconifyIcon icon="logos:twitter" />
+            <Stack direction="row" spacing={{ xs: 1, sm: 2 }}>
+              <Button
+                fullWidth
+                size="large"
+                color="neutral"
+                variant="outlined"
+                sx={{ p: 1 }}
+                onClick={handleGoogleLogin}
+                disabled={loading}
+              >
+                <IconifyIcon icon="eva:google-fill" color="error.main" />
               </Button>
             </Stack>
 

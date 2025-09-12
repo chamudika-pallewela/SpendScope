@@ -1,9 +1,9 @@
-import { Box, Card, CardContent, Grid, Stack, Typography } from '@mui/material';
+import { Grid } from '@mui/material';
 import CardContainer from 'components/common/CardContainter';
 import ReactEchart from 'components/base/ReactEchart';
 import { TransactionResponse } from 'config/categories';
 import { useChartResize } from 'providers/useEchartResize';
-import { useEffect, useRef, useMemo } from 'react';
+import { useRef, useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts/core';
 import { PieChart, BarChart, LineChart } from 'echarts/charts';
@@ -168,9 +168,15 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
         axisPointer: {
           type: 'shadow',
         },
-        formatter: (params: any) => {
-          let result = `${params[0].axisValue}<br/>`;
-          params.forEach((param: any) => {
+        formatter: (params: unknown) => {
+          const paramsArray = params as Array<{
+            marker: string;
+            seriesName: string;
+            value: number;
+            axisValue: string;
+          }>;
+          let result = `${paramsArray[0].axisValue}<br/>`;
+          paramsArray.forEach((param) => {
             result += `${param.marker}${param.seriesName}: ${formatCurrency(param.value)}<br/>`;
           });
           return result;
@@ -242,8 +248,8 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
       },
       tooltip: {
         trigger: 'axis',
-        formatter: (params: any) => {
-          const data = params[0];
+        formatter: (params: unknown) => {
+          const data = (params as Array<{ axisValue: string; value: number }>)[0];
           return `${data.axisValue}<br/>Balance: ${formatCurrency(data.value)}`;
         },
       },

@@ -55,13 +55,6 @@ const AffordabilityReport = ({
 
   if (!latest) return null;
 
-  const verdictColor =
-    latest.verdict === 'Green'
-      ? 'success.main'
-      : latest.verdict === 'Amber'
-        ? 'warning.main'
-        : 'error.main';
-
   return (
     <Box sx={{ mt: 2, height: '100%', display: 'flex' }}>
       {/* Section container (not a Card) */}

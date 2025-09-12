@@ -15,10 +15,14 @@ const paths = {
   investments: `${rootPaths.pagesRoot}investments`,
   loans: `${rootPaths.pagesRoot}loans`,
   accounts: `${rootPaths.pagesRoot}accounts`,
+  profile: `${rootPaths.pagesRoot}profile`,
+  uploads: `${rootPaths.pagesRoot}uploads`,
+  uploadDetail: `${rootPaths.pagesRoot}uploads/:id`,
   login: `${rootPaths.authRoot}/login`,
   signup: `${rootPaths.authRoot}/sign-up`,
   forgetPassword: `${rootPaths.authRoot}/forget-password`,
   resetPassword: `${rootPaths.authRoot}/reset-password`,
+  verifyEmail: `${rootPaths.authRoot}/verify-email`,
   notFound: `${rootPaths.errorRoot}/404`,
 };
 
