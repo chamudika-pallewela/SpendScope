@@ -12,7 +12,7 @@ const VerifyEmailPage = () => {
 
   useEffect(() => {
     if (!currentUser) {
-      navigate('/authentication/login');
+      navigate('/authentication/sign-up');
     }
   }, [currentUser, navigate]);
 
@@ -32,7 +32,7 @@ const VerifyEmailPage = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate('/authentication/login');
+      navigate('/authentication/sign-up');
     } catch (error: unknown) {
       setError((error as Error).message || 'Failed to logout');
     }

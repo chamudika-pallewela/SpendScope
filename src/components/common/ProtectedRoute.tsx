@@ -45,9 +45,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!currentUser) {
-    console.log('ProtectedRoute - No current user, redirecting to login');
-    // Redirect to login page with return url
-    return <Navigate to="/authentication/login" state={{ from: location }} replace />;
+    console.log('ProtectedRoute - No current user, redirecting to signup');
+    // Redirect to signup page with return url
+    return <Navigate to="/authentication/sign-up" state={{ from: location }} replace />;
   }
 
   if (requireEmailVerification && !currentUser.emailVerified) {

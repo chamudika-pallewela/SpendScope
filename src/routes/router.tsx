@@ -37,6 +37,10 @@ export const routes = [
     children: [
       {
         path: paths.default,
+        element: <Navigate to={paths.signup} replace />,
+      },
+      {
+        path: paths.dashboard,
         element: (
           <ProtectedRoute>
             <MainLayout>
@@ -52,19 +56,19 @@ export const routes = [
             element: <Dashboard />,
           },
           {
-            path: paths.transactions,
+            path: 'transactions',
             element: <Dashboard />,
           },
           {
-            path: paths.profile,
+            path: 'profile',
             element: <ProfilePage />,
           },
           {
-            path: paths.uploads,
+            path: 'uploads',
             element: <UploadsPage />,
           },
           {
-            path: paths.uploadDetail,
+            path: 'uploads/:id',
             element: <UploadDetailPage />,
           },
         ],

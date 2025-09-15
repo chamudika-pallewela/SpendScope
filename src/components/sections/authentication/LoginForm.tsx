@@ -50,7 +50,7 @@ const LoginForm = () => {
         setShowTwoFactor(true);
       } else {
         console.log('Keep logged in is true - navigating to dashboard...');
-        navigate('/', { replace: true });
+        navigate('/dashboard', { replace: true });
       }
     } catch (error: unknown) {
       setError((error as Error).message || 'Failed to sign in');
@@ -62,8 +62,8 @@ const LoginForm = () => {
   const handleTwoFactorSuccess = () => {
     console.log('2FA Success callback called - Navigating to dashboard...');
     setShowTwoFactor(false);
-    console.log('About to navigate to /');
-    navigate('/', { replace: true });
+    console.log('About to navigate to /dashboard');
+    navigate('/dashboard', { replace: true });
     console.log('Navigation called');
   };
 

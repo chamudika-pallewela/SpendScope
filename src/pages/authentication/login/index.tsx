@@ -26,7 +26,7 @@ const LoginPage = () => {
       setError('');
       setLoading(true);
       await loginWithGoogle();
-      navigate('/');
+      navigate('/dashboard');
     } catch (error: unknown) {
       setError((error as Error).message || 'Failed to sign in with Google');
     } finally {
