@@ -1,7 +1,7 @@
 // Category mapping with icons and colors
 export const CATEGORY_MAP = {
   'Essential Living Costs': {
-    icon: 'material-symbols:home-work',
+    icon: 'material-symbols:home',
     color: '#6366F1', // Modern indigo
     subcategories: {
       'Housing & Utilities': [
@@ -88,8 +88,8 @@ export const CATEGORY_MAP = {
 // Subcategory icon mapping
 export const SUBCATEGORY_ICONS: Record<string, string> = {
   // Essential Living Costs - Housing & Utilities
-  'Housing & Utilities': 'material-symbols:home-filled',
-  'Rent / Mortgage payments': 'material-symbols:home-filled',
+  'Housing & Utilities': 'material-symbols:home',
+  'Rent / Mortgage payments': 'material-symbols:home',
   'Council Tax': 'material-symbols:account-balance',
   Electricity: 'material-symbols:bolt',
   Gas: 'material-symbols:local-fire-department',
@@ -129,7 +129,7 @@ export const SUBCATEGORY_ICONS: Record<string, string> = {
   'Bank transactions': 'material-symbols:account-balance',
   'Transfer out': 'material-symbols:send',
   'Cash withdrawal': 'material-symbols:atm',
-  'Other mortgages / secured loans': 'material-symbols:apartment',
+  'Other mortgages / secured loans': 'material-symbols:home',
 
   // Lifestyle & Discretionary
   'Lifestyle & Discretionary': 'material-symbols:celebration',
