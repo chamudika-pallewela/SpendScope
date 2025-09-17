@@ -59,6 +59,51 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
       {} as Record<string, { totalIn: number; totalOut: number; count: number }>,
     );
 
+    // Group by month for month-on-month changes
+    const monthlyData = transactionData.transactions.reduce(
+      (acc, transaction) => {
+        const date = new Date(transaction.date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const monthName = date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+
+        if (!acc[monthKey]) {
+          acc[monthKey] = {
+            monthName,
+            totalIn: 0,
+            totalOut: 0,
+            netChange: 0,
+            count: 0,
+          };
+        }
+        acc[monthKey].totalIn += transaction.money_in || 0;
+        acc[monthKey].totalOut += transaction.money_out || 0;
+        acc[monthKey].netChange = acc[monthKey].totalIn - acc[monthKey].totalOut;
+        acc[monthKey].count += 1;
+        return acc;
+      },
+      {} as Record<
+        string,
+        {
+          monthName: string;
+          totalIn: number;
+          totalOut: number;
+          netChange: number;
+          count: number;
+        }
+      >,
+    );
+
+    // Sort monthly data by date
+    const sortedMonthlyData = Object.entries(monthlyData)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .reduce(
+        (acc, [key, value]) => {
+          acc[key] = value;
+          return acc;
+        },
+        {} as typeof monthlyData,
+      );
+
     // Group by date for line chart
     const dateData = transactionData.transactions.reduce(
       (acc, transaction) => {
@@ -74,7 +119,7 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
       {} as Record<string, { totalIn: number; totalOut: number; balance: number }>,
     );
 
-    return { categoryData, dateData };
+    return { categoryData, monthlyData: sortedMonthlyData, dateData };
   }, [transactionData]);
 
   const formatCurrency = (amount: number) => {
@@ -84,18 +129,22 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
     }).format(amount);
   };
 
-  // Pie Chart Options - Category Distribution
+  // Pie Chart Options - Spend Distribution Across Categories
   const pieChartOptions = useMemo(() => {
     if (!chartData) return {};
 
-    const pieData = Object.entries(chartData.categoryData).map(([category, data]) => ({
-      name: category,
-      value: Math.abs(data.totalIn - data.totalOut),
-    }));
+    // Filter out categories with no spending and focus on money out (spending)
+    const pieData = Object.entries(chartData.categoryData)
+      .filter(([, data]) => data.totalOut > 0)
+      .map(([category, data]) => ({
+        name: category,
+        value: data.totalOut,
+      }))
+      .sort((a, b) => b.value - a.value); // Sort by spending amount
 
     return {
       title: {
-        text: 'Transaction Distribution',
+        text: 'Spend Distribution Across Categories',
         left: 'center',
         textStyle: {
           fontSize: 16,
@@ -104,7 +153,9 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
       },
       tooltip: {
         trigger: 'item',
-        formatter: '{a} <br/>{b}: {c} ({d}%)',
+        formatter: (params: { name: string; value: number; percent: number }) => {
+          return `${params.name}<br/>Spent: ${formatCurrency(params.value)}<br/>Percentage: ${params.percent}%`;
+        },
       },
       legend: {
         orient: 'vertical',
@@ -116,7 +167,7 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
       },
       series: [
         {
-          name: 'Transactions',
+          name: 'Spending',
           type: 'pie',
           radius: ['40%', '70%'],
           center: ['60%', '50%'],
@@ -146,17 +197,19 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
     };
   }, [chartData]);
 
-  // Bar Chart Options - Category Comparison
+  // Bar Chart Options - Month-on-Month Changes
   const barChartOptions = useMemo(() => {
-    if (!chartData) return {};
+    if (!chartData || !chartData.monthlyData) return {};
 
-    const categories = Object.keys(chartData.categoryData);
-    const moneyInData = categories.map((cat) => chartData.categoryData[cat].totalIn);
-    const moneyOutData = categories.map((cat) => chartData.categoryData[cat].totalOut);
+    const months = Object.keys(chartData.monthlyData);
+    const monthNames = months.map((month) => chartData.monthlyData[month].monthName);
+    const moneyInData = months.map((month) => chartData.monthlyData[month].totalIn);
+    const moneyOutData = months.map((month) => chartData.monthlyData[month].totalOut);
+    const netChangeData = months.map((month) => chartData.monthlyData[month].netChange);
 
     return {
       title: {
-        text: 'Money In vs Money Out by Category',
+        text: 'Month-on-Month Changes',
         left: 'center',
         textStyle: {
           fontSize: 16,
@@ -183,7 +236,7 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
         },
       },
       legend: {
-        data: ['Money In', 'Money Out'],
+        data: ['Money In', 'Money Out', 'Net Change'],
         top: 30,
       },
       grid: {
@@ -195,7 +248,7 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
       },
       xAxis: {
         type: 'category',
-        data: categories.map((cat) => cat.charAt(0).toUpperCase() + cat.slice(1)),
+        data: monthNames,
         axisLabel: {
           rotate: 45,
           fontSize: 10,
@@ -223,6 +276,15 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
           data: moneyOutData,
           itemStyle: {
             color: '#F44336',
+            borderRadius: [4, 4, 0, 0],
+          },
+        },
+        {
+          name: 'Net Change',
+          type: 'bar',
+          data: netChangeData,
+          itemStyle: {
+            color: (params: { value: number }) => (params.value >= 0 ? '#2196F3' : '#FF9800'),
             borderRadius: [4, 4, 0, 0],
           },
         },
@@ -313,7 +375,7 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
     <Grid container spacing={3}>
       {/* Pie Chart */}
       <Grid item xs={12} md={6}>
-        <CardContainer title="Transaction Distribution">
+        <CardContainer title="Spend Distribution Across Categories">
           <ReactEchart
             echarts={echarts}
             option={pieChartOptions}
@@ -330,7 +392,7 @@ const TransactionCharts = ({ transactionData }: TransactionChartsProps) => {
 
       {/* Bar Chart */}
       <Grid item xs={12} md={6}>
-        <CardContainer title="Category Comparison">
+        <CardContainer title="Month-on-Month Changes">
           <ReactEchart
             echarts={echarts}
             option={barChartOptions}

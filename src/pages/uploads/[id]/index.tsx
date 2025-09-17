@@ -19,6 +19,7 @@ import IconifyIcon from 'components/base/IconifyIcon';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getUploadById, deleteUpload, SavedUpload } from '../../../services/uploadService';
 import { TransactionResponse } from '../../../config/categories';
+// import paths from '../../../routes/path';
 import TransactionSummary from 'components/sections/dashboard/transactions/TransactionSummary';
 import TransactionCategories from 'components/sections/dashboard/transactions/TransactionCategories';
 import TransactionCharts from 'components/sections/dashboard/transactions/TransactionCharts';
@@ -84,7 +85,7 @@ const UploadDetailPage = () => {
     try {
       setDeleting(true);
       await deleteUpload(id);
-      navigate('/uploads');
+      navigate('/dashboard/uploads');
     } catch (err) {
       console.error('Error deleting upload:', err);
       setError('Failed to delete upload');
@@ -208,7 +209,7 @@ const UploadDetailPage = () => {
           <Button
             variant="outlined"
             startIcon={<IconifyIcon icon="material-symbols:arrow-back" />}
-            onClick={() => navigate('/uploads')}
+            onClick={() => navigate('/dashboard/uploads')}
             sx={{ mb: 2 }}
           >
             Back to Uploads

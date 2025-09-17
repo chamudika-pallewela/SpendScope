@@ -2,6 +2,7 @@ import { SvgIconProps } from '@mui/material';
 import HomeIcon from 'components/icons/menu-icons/HomeIcon';
 import UserIcon from 'components/icons/menu-icons/UserIcon';
 import TransferIcon from 'components/icons/menu-icons/TransferIcon';
+// import paths from 'routes/path';
 
 export enum linkEnum {
   Dashboard = 'dashboard',
@@ -31,21 +32,21 @@ export const menuLinks: MenuLinkType[] = [
   {
     id: 1,
     title: linkEnum.Dashboard,
-    link: '/',
+    link: '/dashboard',
     icon: HomeIcon,
     available: true,
   },
   {
     id: 2,
     title: linkEnum.Profile,
-    link: '/profile',
+    link: '/dashboard/profile',
     icon: UserIcon,
     available: true,
   },
   {
     id: 3,
     title: linkEnum.Uploads,
-    link: '/uploads',
+    link: '/dashboard/uploads',
     icon: TransferIcon,
     available: true,
   },

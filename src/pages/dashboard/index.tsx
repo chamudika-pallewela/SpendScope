@@ -519,10 +519,10 @@ const Dashboard = () => {
       {/* ------------- Income Verification (separate, above AML & Affordability) ---------------- */}
       {filteredTransactionData && (
         <>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12}>
             <IncomeVerification transactionData={filteredTransactionData} />
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12}>
             <AffordabilityReport transactionData={filteredTransactionData} />
           </Grid>
         </>

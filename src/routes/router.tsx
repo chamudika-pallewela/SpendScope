@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
-import paths, { rootPaths } from './path';
+// import paths, { rootPaths } from './path';
 import ProtectedRoute from 'components/common/ProtectedRoute';
 
 /* ---------------- Lazy loads various components ------------------------- */
@@ -36,11 +36,11 @@ export const routes = [
     ),
     children: [
       {
-        path: paths.default,
-        element: <Navigate to={paths.signup} replace />,
+        path: '/',
+        element: <Navigate to="/authentication/sign-up" replace />,
       },
       {
-        path: paths.dashboard,
+        path: '/dashboard',
         element: (
           <ProtectedRoute>
             <MainLayout>
@@ -74,43 +74,43 @@ export const routes = [
         ],
       },
       {
-        path: rootPaths.authRoot,
+        path: '/authentication',
         element: <AuthLayout />,
         children: [
           {
-            path: paths.login,
+            path: 'login',
             element: <LoginPage />,
           },
           {
-            path: paths.signup,
+            path: 'sign-up',
             element: <SignUpPage />,
           },
           {
-            path: paths.forgetPassword,
+            path: 'forget-password',
             element: <ForgetPasswordPage />,
           },
           {
-            path: paths.resetPassword,
+            path: 'reset-password',
             element: <ResetPasswordPage />,
           },
           {
-            path: paths.verifyEmail,
+            path: 'verify-email',
             element: <VerifyEmailPage />,
           },
         ],
       },
       {
-        path: rootPaths.errorRoot,
+        path: '/error',
         children: [
           {
-            path: paths.notFound,
+            path: '404',
             element: <NotFoundPage />,
           },
         ],
       },
       {
         path: '*',
-        element: <Navigate to={paths.notFound} replace />,
+        element: <Navigate to="/error/404" replace />,
       },
     ],
   },

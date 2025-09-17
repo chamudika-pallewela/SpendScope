@@ -27,7 +27,7 @@ const SignupPage = () => {
       setLoading(true);
       // For Google signup, we'll assume they want to keep logged in (no 2FA)
       await loginWithGoogle(true);
-      navigate('/');
+      navigate('/dashboard');
     } catch (error: unknown) {
       setError((error as Error).message || 'Failed to sign up with Google');
     } finally {

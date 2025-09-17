@@ -50,7 +50,7 @@ const SignupForm = () => {
       setError('');
       setLoading(true);
       await register(email, password, username);
-      navigate('/authentication/verify-email');
+      navigate('/dashboard');
     } catch (error: unknown) {
       setError((error as Error).message || 'Failed to create account');
     } finally {

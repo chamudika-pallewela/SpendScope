@@ -1,17 +1,17 @@
-import { AppBar, Box, IconButton, Link, Stack, Toolbar, Typography } from '@mui/material';
+import { AppBar, IconButton, Link, Stack, Toolbar, Typography } from '@mui/material';
 import IconifyIcon from 'components/base/IconifyIcon';
 import Image from 'components/base/Image';
-import NotificationDropdown from 'layouts/main-layout/appbar/NotificationDropdown';
+// import NotificationDropdown from 'layouts/main-layout/appbar/NotificationDropdown';
 import ProfileDropdown from 'layouts/main-layout/appbar/ProfileDropdown';
-import SearchInput from 'layouts/main-layout/appbar/SearchInput';
-import SettingsDropdown from 'layouts/main-layout/appbar/SettingsDropdown';
-import { MouseEvent, useState } from 'react';
+// import SearchInput from 'layouts/main-layout/appbar/SearchInput';
+// import SettingsDropdown from 'layouts/main-layout/appbar/SettingsDropdown';
+// import { MouseEvent, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 interface NavbarProps {
   onDrawerToggle: () => void;
 }
 const MainNavbar = ({ onDrawerToggle }: NavbarProps) => {
-  const [open, setOpen] = useState<null | HTMLElement>(null);
+  // const [open, setOpen] = useState<null | HTMLElement>(null);
 
   const location = useLocation();
 
@@ -19,13 +19,13 @@ const MainNavbar = ({ onDrawerToggle }: NavbarProps) => {
   const pathSegments = location.pathname.split('/').filter((segment) => segment.trim() !== '');
   const routeName = pathSegments.length > 0 ? pathSegments.pop() : 'Overview';
 
-  const handleOpen = (event: MouseEvent<HTMLElement>) => {
-    setOpen(event.currentTarget);
-  };
+  // const handleOpen = (event: MouseEvent<HTMLElement>) => {
+  //   setOpen(event.currentTarget);
+  // };
 
-  const handleClose = () => {
-    setOpen(null);
-  };
+  // const handleClose = () => {
+  //   setOpen(null);
+  // };
 
   return (
     <>
@@ -60,28 +60,33 @@ const MainNavbar = ({ onDrawerToggle }: NavbarProps) => {
           </Stack>
 
           <Stack direction="row" sx={{ alignItems: 'center', gap: { xs: 2.5, xl: 3.75 } }}>
-            <Box sx={{ display: { xs: 'none', md: 'block', maxWidth: 260 } }}>
+            {/* Search bar removed */}
+            {/* <Box sx={{ display: { xs: 'none', md: 'block', maxWidth: 260 } }}>
               <SearchInput fullWidth={false} size={'medium'} />
-            </Box>
+            </Box> */}
 
             <Stack direction="row" sx={{ gap: { xs: 2.5, xl: 3.75 } }}>
-              <SettingsDropdown />
-              <IconButton sx={{ bgcolor: 'background.paper' }} onClick={handleOpen}>
+              {/* Settings dropdown removed */}
+              {/* <SettingsDropdown /> */}
+
+              {/* Notification icon commented out */}
+              {/* <IconButton sx={{ bgcolor: 'background.paper' }} onClick={handleOpen}>
                 <IconifyIcon
                   color="error.main"
                   icon="lucide:bell-dot"
                   sx={{ width: { xs: 18, md: 20, xl: 25 }, height: { xs: 18, md: 20, xl: 25 } }}
                 />
-              </IconButton>
+              </IconButton> */}
 
-              <NotificationDropdown open={open} onClose={handleClose} />
+              {/* <NotificationDropdown open={open} onClose={handleClose} /> */}
             </Stack>
             <ProfileDropdown />
           </Stack>
         </Toolbar>
-        <Box sx={{ display: { xs: 'block', md: 'none' }, px: 3.15, mt: 2.5 }}>
+        {/* Mobile search bar removed */}
+        {/* <Box sx={{ display: { xs: 'block', md: 'none' }, px: 3.15, mt: 2.5 }}>
           <SearchInput fullWidth={true} size={'small'} />
-        </Box>
+        </Box> */}
       </AppBar>
     </>
   );

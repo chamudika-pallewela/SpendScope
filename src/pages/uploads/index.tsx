@@ -21,6 +21,7 @@ import {
 import IconifyIcon from 'components/base/IconifyIcon';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserUploads, deleteUpload, UploadSummary } from '../../services/uploadService';
+// import paths from '../../routes/path';
 
 const UploadsPage = () => {
   const [uploads, setUploads] = useState<UploadSummary[]>([]);
@@ -56,7 +57,7 @@ const UploadsPage = () => {
   };
 
   const handleViewUpload = (uploadId: string) => {
-    navigate(`/uploads/${uploadId}`);
+    navigate(`/dashboard/uploads/${uploadId}`);
   };
 
   const handleDeleteClick = (uploadId: string) => {
@@ -103,7 +104,7 @@ const UploadsPage = () => {
         <Button
           variant="contained"
           startIcon={<IconifyIcon icon="material-symbols:upload" />}
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/dashboard')}
         >
           New Upload
         </Button>

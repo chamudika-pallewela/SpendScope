@@ -27,7 +27,7 @@ const MainLayout = ({ children }: PropsWithChildren) => {
   };
   return (
     <>
-      <Box sx={{ display: 'flex' }}>
+      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
         <Sidebar drawerWidth={drawerWidth} />
         <MobileSidebar
           onDrawerClose={handleDrawerClose}
@@ -46,21 +46,22 @@ const MainLayout = ({ children }: PropsWithChildren) => {
               md: `calc(100% - ${drawerWidth.md}px)`,
               lg: `calc(100% - ${drawerWidth.lg}px)`,
             },
-            justifyContent: 'space-between',
+            minHeight: '100vh',
           }}
         >
           <MainNavbar onDrawerToggle={handleDrawerToggle} />
-          <Stack
+          <Box
             sx={{
               backgroundColor: { xs: 'common.white', md: 'background.paper' },
               px: { xs: 3.15, md: 5, xl: 7 },
               flex: 1,
-              gap: 1,
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
-            {children}
+            <Box sx={{ flex: 1 }}>{children}</Box>
             <Footer />
-          </Stack>
+          </Box>
         </Stack>
       </Box>
     </>

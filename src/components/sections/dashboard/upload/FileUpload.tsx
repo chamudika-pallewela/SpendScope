@@ -52,6 +52,8 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
           onFileUpload(files);
         }
       }
+      // Reset the input value to allow selecting the same file again
+      e.target.value = '';
     },
     [onFileUpload],
   );
@@ -61,8 +63,15 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
     input?.click();
   };
 
+  const resetFileInput = () => {
+    const input = document.getElementById('file-upload') as HTMLInputElement;
+    if (input) {
+      input.value = '';
+    }
+  };
+
   return (
-    <Card sx={{ backgroundColor: 'common.white', width: 1, mb: 3 }}>
+    <Card sx={{ backgroundColor: 'common.white', width: 1, mb: 3, mt: 2 }}>
       <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={3}>
           <Typography
@@ -167,6 +176,7 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
                             e.stopPropagation();
                             const newFiles = selectedFiles.filter((_, i) => i !== index);
                             setSelectedFiles(newFiles);
+                            resetFileInput();
                             if (newFiles.length > 0) {
                               onFileUpload(newFiles);
                             }
@@ -183,6 +193,7 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedFiles([]);
+                      resetFileInput();
                     }}
                   >
                     Clear All
