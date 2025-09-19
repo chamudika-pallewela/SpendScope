@@ -69,16 +69,18 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
         status: 'Active',
         address: '72 Hebdon Road, London, United Kingdom, SW17 7NN',
         incorporated: '20 October 2016',
-        companyUrl: 'https://find-and-update.company-information.service.gov.uk/company/10438364',
+        companyUrl:
+          'https://find-and-update.company-information.service.gov.uk/search?q=AHTHAVANN+VELU+LTD',
       };
     } else if (cleanName.toLowerCase().includes('kamaraj')) {
       mockApiResponse = {
         name: 'KAMARAJ ENTERPRISES LTD',
-        number: '87654321',
+        number: 'N/A',
         status: 'Active',
         address: '456 Commerce Road, Manchester, M1 1AA',
         incorporated: '19 March 2019',
-        companyUrl: 'https://find-and-update.company-information.service.gov.uk/company/87654321',
+        companyUrl:
+          'https://find-and-update.company-information.service.gov.uk/search?q=KAMARAJ+ENTERPRISES',
       };
     } else if (
       cleanName.toLowerCase().includes('loyd') ||
@@ -87,29 +89,32 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
       // Handle LOYD 1-3 THE BROAD specifically
       mockApiResponse = {
         name: 'LOYD PROPERTY MANAGEMENT LTD',
-        number: '12345679',
+        number: 'N/A',
         status: 'Active',
         address: '1-3 The Broad, London, United Kingdom, SW1A 1AA',
         incorporated: '15 March 2018',
-        companyUrl: 'https://find-and-update.company-information.service.gov.uk/company/12345679',
+        companyUrl:
+          'https://find-and-update.company-information.service.gov.uk/search?q=LOYD+PROPERTY+MANAGEMENT',
       };
     } else if (cleanName.toLowerCase().includes('brandvale')) {
       mockApiResponse = {
         name: 'BRANDVALE PROPERTIES LTD',
-        number: '98765432',
+        number: 'N/A',
         status: 'Active',
         address: '123 Property Street, London, United Kingdom, SW1A 1AA',
         incorporated: '10 January 2017',
-        companyUrl: 'https://find-and-update.company-information.service.gov.uk/company/98765432',
+        companyUrl:
+          'https://find-and-update.company-information.service.gov.uk/search?q=BRANDVALE+PROPERTIES',
       };
     } else if (cleanName.toLowerCase().includes('stanhill')) {
       mockApiResponse = {
         name: 'STANHILL COURT HOTEL LTD',
-        number: '11223344',
+        number: 'N/A',
         status: 'Active',
         address: 'Stanhill Court, Surrey, United Kingdom, RH1 1AA',
         incorporated: '22 May 2019',
-        companyUrl: 'https://find-and-update.company-information.service.gov.uk/company/11223344',
+        companyUrl:
+          'https://find-and-update.company-information.service.gov.uk/search?q=STANHILL+COURT+HOTEL',
       };
     } else if (
       cleanName.toLowerCase().includes('thamilarasan') ||
@@ -117,11 +122,12 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
     ) {
       mockApiResponse = {
         name: 'THAMILARASAN ENTERPRISES LTD',
-        number: '22334455',
+        number: 'N/A',
         status: 'Active',
         address: '789 Business Park, London, United Kingdom, SW1A 1AA',
         incorporated: '12 April 2020',
-        companyUrl: 'https://find-and-update.company-information.service.gov.uk/company/22334455',
+        companyUrl:
+          'https://find-and-update.company-information.service.gov.uk/search?q=THAMILARASAN+ENTERPRISES',
       };
     } else if (
       cleanName.toLowerCase().includes('muthulaks') ||
@@ -129,11 +135,12 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
     ) {
       mockApiResponse = {
         name: 'MUTHULAKS TRADING LTD',
-        number: '33445566',
+        number: 'N/A',
         status: 'Active',
         address: '456 Trading Street, Manchester, United Kingdom, M1 1AA',
         incorporated: '08 September 2021',
-        companyUrl: 'https://find-and-update.company-information.service.gov.uk/company/33445566',
+        companyUrl:
+          'https://find-and-update.company-information.service.gov.uk/search?q=MUTHULAKS+TRADING',
       };
     } else if (
       cleanName.toLowerCase().includes('godwin') ||
@@ -141,22 +148,22 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
     ) {
       mockApiResponse = {
         name: 'GODWIN SELVAD CONSULTING LTD',
-        number: '44556677',
+        number: 'N/A',
         status: 'Active',
         address: '321 Consulting Avenue, Birmingham, United Kingdom, B1 1AA',
         incorporated: '15 November 2019',
-        companyUrl: 'https://find-and-update.company-information.service.gov.uk/company/44556677',
+        companyUrl:
+          'https://find-and-update.company-information.service.gov.uk/search?q=GODWIN+SELVAD+CONSULTING',
       };
     } else {
-      // For other payers, create a realistic company with direct link
-      const companyNumber = Math.floor(Math.random() * 90000000) + 10000000; // Generate 8-digit number
+      // For other payers, create a realistic company but don't link to fake Companies House entries
       mockApiResponse = {
         name: `${cleanName.toUpperCase()} LIMITED`,
-        number: companyNumber.toString(),
+        number: 'N/A',
         status: 'Active',
         address: '789 Corporate Avenue, Birmingham, B1 1AA',
         incorporated: '10 June 2021',
-        companyUrl: `https://find-and-update.company-information.service.gov.uk/company/${companyNumber}`,
+        companyUrl: 'https://find-and-update.company-information.service.gov.uk/search', // Link to search instead
       };
     }
 
@@ -166,7 +173,7 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
     // Return a fallback company info object instead of null
     return {
       name: 'COMPANY NOT FOUND',
-      number: '00000000',
+      number: 'N/A',
       status: 'Unknown',
       address: 'Address not available',
       incorporated: 'Date not available',
@@ -634,7 +641,9 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
                                         },
                                       }}
                                     >
-                                      View on Companies House
+                                      {s.companyInfo.number === 'N/A'
+                                        ? 'Search Companies House'
+                                        : 'View on Companies House'}
                                     </Link>
                                   </Stack>
                                   <Typography
