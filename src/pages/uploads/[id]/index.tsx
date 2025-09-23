@@ -273,12 +273,12 @@ const UploadDetailPage = () => {
           </Grid>
 
           {/* Income Verification & Affordability Report */}
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12}>
             <IncomeVerification
               transactionData={filteredTransactionData as unknown as TransactionResponse}
             />
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12}>
             <AffordabilityReport
               transactionData={filteredTransactionData as unknown as TransactionResponse}
             />
