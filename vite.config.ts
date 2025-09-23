@@ -18,7 +18,7 @@ export default defineConfig({
       },
     }),
   ],
-  base: '/bankwise',
+  base: '/analyzr-ai',
 
   //   preview: {
   //     port: 5000,

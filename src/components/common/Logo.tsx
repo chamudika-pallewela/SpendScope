@@ -5,8 +5,8 @@ import { Fragment } from 'react/jsx-runtime';
 const Logo = () => {
   return (
     <Fragment>
-      <Image src="/bankwise/bankdash.svg" alt="Logo" sx={{ width: 36 }} />
-      <Typography variant="h2">SpendScope.</Typography>
+      <Image src="/analyzr-ai/bankdash.svg" alt="Logo" sx={{ width: 36 }} />
+      <Typography variant="h2">Analyzr.AI</Typography>
     </Fragment>
   );
 };

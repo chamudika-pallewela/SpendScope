@@ -12,7 +12,7 @@ import { buildApiUrl } from 'config/api';
 import { TransactionResponse, CATEGORY_MAP } from 'config/categories';
 import { useState, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { saveUpload } from '../../services/uploadService';
+import { saveUpload, testFirebaseConnection } from '../../services/uploadService';
 
 const Dashboard = () => {
   const [transactionData, setTransactionData] = useState<TransactionResponse | null>(null);
@@ -20,6 +20,12 @@ const Dashboard = () => {
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
   const [originalApiResponse, setOriginalApiResponse] = useState<unknown>(null);
   const { currentUser } = useAuth();
+
+  const handleClearData = () => {
+    setTransactionData(null);
+    setSelectedBank(null);
+    setOriginalApiResponse(null);
+  };
 
   const handleFileUpload = async (files: File[]) => {
     setIsUploading(true);
@@ -45,13 +51,28 @@ const Dashboard = () => {
       setOriginalApiResponse(result);
 
       // Save the upload to Firebase if user is logged in
-      if (currentUser) {
-        try {
-          // Extract customer name and date range from the response
-          let customerName = 'Unknown Customer';
-          const dateRange = { start: '', end: '' };
-          let bank = 'Unknown Bank';
+      console.log('Current user status:', {
+        isLoggedIn: !!currentUser,
+        userId: currentUser?.uid,
+        email: currentUser?.email,
+      });
 
+      if (currentUser) {
+        // Test Firebase connection first
+        const firebaseConnected = await testFirebaseConnection(currentUser.uid);
+        console.log('Firebase connection status:', firebaseConnected);
+
+        if (!firebaseConnected) {
+          console.error('Firebase connection failed - cannot save upload');
+          return;
+        }
+
+        // Extract customer name and date range from the response
+        let customerName = 'Unknown Customer';
+        const dateRange = { start: '', end: '' };
+        let bank = 'Unknown Bank';
+
+        try {
           if (result.results && result.results.length > 0) {
             const firstResult = result.results[0];
             customerName =
@@ -98,10 +119,25 @@ const Dashboard = () => {
           }
 
           // Save to Firebase
-          await saveUpload(currentUser.uid, customerName, bank, dateRange, result);
-          console.log('Upload saved successfully');
+          console.log('Attempting to save upload to Firebase...', {
+            userId: currentUser.uid,
+            customerName,
+            bank,
+            dateRange,
+            resultKeys: Object.keys(result),
+          });
+
+          const uploadId = await saveUpload(currentUser.uid, customerName, bank, dateRange, result);
+          console.log('Upload saved successfully with ID:', uploadId);
         } catch (saveError) {
           console.error('Error saving upload:', saveError);
+          console.error('Save error details:', {
+            error: saveError,
+            userId: currentUser.uid,
+            customerName,
+            bank,
+            dateRange,
+          });
           // Don't fail the upload if saving fails
         }
       }
@@ -468,7 +504,11 @@ const Dashboard = () => {
     <Grid container spacing={{ xs: 2.5, sm: 3 }} mb={3}>
       {/* ------------- File Upload section ---------------- */}
       <Grid item xs={12}>
-        <FileUpload onFileUpload={handleFileUpload} isUploading={isUploading} />
+        <FileUpload
+          onFileUpload={handleFileUpload}
+          onClearData={handleClearData}
+          isUploading={isUploading}
+        />
         {transactionData && (
           <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1 }}>
             <ButtonGroup variant="contained" size="small">

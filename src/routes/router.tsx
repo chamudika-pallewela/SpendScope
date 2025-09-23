@@ -117,10 +117,10 @@ export const routes = [
 ];
 
 const router = createBrowserRouter(routes, {
-  basename: '/bankwise',
+  basename: '/analyzr-ai',
 });
 
 // Debug router
-console.log('Router created with basename:', '/bankwise');
+console.log('Router created with basename:', '/analyzr-ai');
 
 export default router;

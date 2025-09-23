@@ -17,6 +17,12 @@ import {
   Alert,
   CircularProgress,
   Divider,
+  TextField,
+  InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import IconifyIcon from 'components/base/IconifyIcon';
 import { useAuth } from '../../contexts/AuthContext';
@@ -25,11 +31,17 @@ import { getUserUploads, deleteUpload, UploadSummary } from '../../services/uplo
 
 const UploadsPage = () => {
   const [uploads, setUploads] = useState<UploadSummary[]>([]);
+  const [filteredUploads, setFilteredUploads] = useState<UploadSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [uploadToDelete, setUploadToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Search and filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'customer' | 'bank'>('newest');
 
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -39,6 +51,48 @@ const UploadsPage = () => {
       loadUploads();
     }
   }, [currentUser]);
+
+  // Filter and sort uploads based on search criteria
+  useEffect(() => {
+    let filtered = [...uploads];
+
+    // Filter by search term (customer name or bank)
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (upload) =>
+          upload.customerName.toLowerCase().includes(term) ||
+          upload.bank.toLowerCase().includes(term),
+      );
+    }
+
+    // Filter by date
+    if (dateFilter) {
+      filtered = filtered.filter((upload) => {
+        const uploadDate = new Date(upload.uploadDate);
+        const filterDate = new Date(dateFilter);
+        return uploadDate.toDateString() === filterDate.toDateString();
+      });
+    }
+
+    // Sort uploads
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
+        case 'oldest':
+          return new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
+        case 'customer':
+          return a.customerName.localeCompare(b.customerName);
+        case 'bank':
+          return a.bank.localeCompare(b.bank);
+        default:
+          return 0;
+      }
+    });
+
+    setFilteredUploads(filtered);
+  }, [uploads, searchTerm, dateFilter, sortBy]);
 
   const loadUploads = async () => {
     if (!currentUser) return;
@@ -116,6 +170,96 @@ const UploadsPage = () => {
         </Alert>
       )}
 
+      {/* Search and Filter Section */}
+      {uploads.length > 0 && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  placeholder="Search by customer name or bank..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <IconifyIcon icon="material-symbols:search" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchTerm && (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setSearchTerm('')}>
+                          <IconifyIcon icon="material-symbols:close" />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  type="date"
+                  label="Filter by date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  InputProps={{
+                    endAdornment: dateFilter && (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setDateFilter('')}>
+                          <IconifyIcon icon="material-symbols:close" />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth>
+                  <InputLabel>Sort by</InputLabel>
+                  <Select
+                    value={sortBy}
+                    label="Sort by"
+                    onChange={(e) =>
+                      setSortBy(e.target.value as 'newest' | 'oldest' | 'customer' | 'bank')
+                    }
+                  >
+                    <MenuItem value="newest">Newest First</MenuItem>
+                    <MenuItem value="oldest">Oldest First</MenuItem>
+                    <MenuItem value="customer">Customer Name</MenuItem>
+                    <MenuItem value="bank">Bank Name</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={2}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="body2" color="text.secondary">
+                    {filteredUploads.length} of {uploads.length}
+                  </Typography>
+                  {(searchTerm || dateFilter) && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setDateFilter('');
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </Stack>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
+
       {uploads.length === 0 ? (
         <Card>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
@@ -138,9 +282,33 @@ const UploadsPage = () => {
             </Button>
           </CardContent>
         </Card>
+      ) : filteredUploads.length === 0 ? (
+        <Card>
+          <CardContent sx={{ textAlign: 'center', py: 6 }}>
+            <IconifyIcon
+              icon="material-symbols:search-off"
+              sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }}
+            />
+            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+              No uploads found
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Try adjusting your search criteria
+            </Typography>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setSearchTerm('');
+                setDateFilter('');
+              }}
+            >
+              Clear Filters
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <Grid container spacing={3}>
-          {uploads.map((upload) => (
+          {filteredUploads.map((upload) => (
             <Grid item xs={12} md={6} lg={4} key={upload.id}>
               <Card
                 sx={{

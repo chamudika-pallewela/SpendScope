@@ -5,10 +5,11 @@ import { useCallback, useState } from 'react';
 
 interface FileUploadProps {
   onFileUpload: (files: File[]) => void;
+  onClearData?: () => void;
   isUploading?: boolean;
 }
 
-const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
+const FileUpload = ({ onFileUpload, onClearData, isUploading = false }: FileUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { up } = useBreakpoints();
@@ -36,11 +37,12 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
         );
         if (files.length > 0) {
           setSelectedFiles(files);
+          onClearData?.(); // Clear existing data when new files are dropped
           onFileUpload(files);
         }
       }
     },
-    [onFileUpload],
+    [onFileUpload, onClearData],
   );
 
   const handleFileInput = useCallback(
@@ -49,13 +51,14 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
         const files = Array.from(e.target.files).filter((file) => file.type === 'application/pdf');
         if (files.length > 0) {
           setSelectedFiles(files);
+          onClearData?.(); // Clear existing data when new files are selected
           onFileUpload(files);
         }
       }
       // Reset the input value to allow selecting the same file again
       e.target.value = '';
     },
-    [onFileUpload],
+    [onFileUpload, onClearData],
   );
 
   const handleUploadClick = () => {
@@ -194,6 +197,7 @@ const FileUpload = ({ onFileUpload, isUploading = false }: FileUploadProps) => {
                       e.stopPropagation();
                       setSelectedFiles([]);
                       resetFileInput();
+                      onClearData?.(); // Clear transaction data when clearing files
                     }}
                   >
                     Clear All
