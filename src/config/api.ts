@@ -2,12 +2,12 @@
 const API_CONFIG = {
   // Development
   development: {
-    baseURL: 'http://localhost:8000',
+    baseURL: 'https://backend-service-777545646871.us-central1.run.app',
     prefix: '', // No prefix - FastAPI serves directly
   },
-  // Production (adjust as needed)
+  // Production
   production: {
-    baseURL: 'https://your-fastapi-server.com',
+    baseURL: 'https://backend-service-777545646871.us-central1.run.app',
     prefix: '', // No prefix - FastAPI serves directly
   },
 };

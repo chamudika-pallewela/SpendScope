@@ -28,9 +28,9 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000', // Your FastAPI server URL
+        target: 'https://backend-service-777545646871.us-central1.run.app', // Your FastAPI server URL
         changeOrigin: true,
-        secure: false,
+        secure: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },

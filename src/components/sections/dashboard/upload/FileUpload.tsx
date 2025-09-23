@@ -1,6 +1,5 @@
 import { Box, Button, Card, CardContent, Stack, Typography } from '@mui/material';
 import IconifyIcon from 'components/base/IconifyIcon';
-import { useBreakpoints } from 'providers/useBreakpoints';
 import { useCallback, useState } from 'react';
 
 interface FileUploadProps {
@@ -12,7 +11,6 @@ interface FileUploadProps {
 const FileUpload = ({ onFileUpload, onClearData, isUploading = false }: FileUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const { up } = useBreakpoints();
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();

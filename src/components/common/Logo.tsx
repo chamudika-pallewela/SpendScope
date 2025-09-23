@@ -7,7 +7,7 @@ const Logo = () => {
     <Fragment>
       <Image src="/analyzr-ai/bankdash.svg" alt="Logo" sx={{ width: 40 }} />
       <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
-        BankWise
+        Analyzr.AI
       </Typography>
     </Fragment>
   );
