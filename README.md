@@ -100,9 +100,6 @@
 4. **Export Reports**: Download PDF or CSV reports for your records
 5. **Track History**: View all your previous uploads and analyses
 
-## 📝 License
-
-Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
 
 ---
 
