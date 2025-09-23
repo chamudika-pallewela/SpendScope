@@ -4,7 +4,7 @@ import checker from 'vite-plugin-checker';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     include: ['@emotion/styled'],
   },
@@ -18,11 +18,30 @@ export default defineConfig({
       },
     }),
   ],
-  base: '/analyzr-ai',
+  base: '/',
 
-  //   preview: {
-  //     port: 5000,
-  //   },
+  // Build configuration
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: false,
+    minify: 'esbuild', // Use esbuild instead of terser
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          mui: ['@mui/material', '@emotion/react', '@emotion/styled'],
+        },
+      },
+    },
+  },
+
+  // Environment variables
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(mode),
+    'import.meta.env.MODE': JSON.stringify(mode),
+  },
+
   server: {
     host: '0.0.0.0',
     port: 3000,
@@ -35,4 +54,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

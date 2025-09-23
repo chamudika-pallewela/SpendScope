@@ -1,6 +1,6 @@
 export const rootPaths = {
   root: '/',
-  pagesRoot: '/dashboard/',
+  pagesRoot: '/dashboard',
   authRoot: '/authentication',
   errorRoot: '/error',
 };
@@ -10,15 +10,15 @@ export const rootPaths = {
  */
 const paths = {
   default: `${rootPaths.root}`,
-  dashboard: `${rootPaths.pagesRoot}dashboard`,
-  transactions: `${rootPaths.pagesRoot}dashboard/transactions`,
-  creditCards: `${rootPaths.pagesRoot}dashboard/credit-cards`,
-  investments: `${rootPaths.pagesRoot}dashboard/investments`,
-  loans: `${rootPaths.pagesRoot}dashboard/loans`,
-  accounts: `${rootPaths.pagesRoot}dashboard/accounts`,
-  profile: `${rootPaths.pagesRoot}dashboard/profile`,
-  uploads: `${rootPaths.pagesRoot}dashboard/uploads`,
-  uploadDetail: `${rootPaths.pagesRoot}dashboard/uploads/:id`,
+  dashboard: `${rootPaths.pagesRoot}`,
+  transactions: `${rootPaths.pagesRoot}/transactions`,
+  creditCards: `${rootPaths.pagesRoot}/credit-cards`,
+  investments: `${rootPaths.pagesRoot}/investments`,
+  loans: `${rootPaths.pagesRoot}/loans`,
+  accounts: `${rootPaths.pagesRoot}/accounts`,
+  profile: `${rootPaths.pagesRoot}/profile`,
+  uploads: `${rootPaths.pagesRoot}/uploads`,
+  uploadDetail: `${rootPaths.pagesRoot}/uploads/:id`,
   login: `${rootPaths.authRoot}/login`,
   signup: `${rootPaths.authRoot}/sign-up`,
   forgetPassword: `${rootPaths.authRoot}/forget-password`,

@@ -117,10 +117,10 @@ export const routes = [
 ];
 
 const router = createBrowserRouter(routes, {
-  basename: '/analyzr-ai',
+  basename: '/',
 });
 
 // Debug router
-console.log('Router created with basename:', '/analyzr-ai');
+console.log('Router created with basename:', '/');
 
 export default router;
