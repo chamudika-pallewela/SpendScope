@@ -83,18 +83,20 @@ const AffordabilityReport = ({
             </Typography>
 
             <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-              Comprehensive analysis of your financial capacity for loan commitments. 
-              Calculates surplus, debt-to-income ratio, and provides risk assessment.
+              Comprehensive analysis of your financial capacity for loan commitments. Calculates
+              surplus, debt-to-income ratio, and provides risk assessment.
             </Typography>
           </Box>
 
-          <Box sx={{ 
-            p: 3, 
-            backgroundColor: 'grey.50', 
-            borderRadius: 2,
-            border: '1px solid',
-            borderColor: 'grey.200'
-          }}>
+          <Box
+            sx={{
+              p: 3,
+              backgroundColor: 'grey.50',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'grey.200',
+            }}
+          >
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
               spacing={3}
@@ -140,15 +142,21 @@ const AffordabilityReport = ({
           <Divider sx={{ my: 2 }} />
           <Grid container spacing={2}>
             <Grid item xs={6} md={3}>
-              <Box sx={{ 
-                p: 2.5, 
-                border: '1px solid', 
-                borderColor: 'grey.200', 
-                borderRadius: 2,
-                backgroundColor: 'common.white',
-                textAlign: 'center'
-              }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Box
+                sx={{
+                  p: 2.5,
+                  border: '1px solid',
+                  borderColor: 'grey.200',
+                  borderRadius: 2,
+                  backgroundColor: 'common.white',
+                  textAlign: 'center',
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 1 }}
+                >
                   Net Income
                 </Typography>
                 <Typography variant="h6" sx={{ fontWeight: 600, color: 'success.main' }}>
@@ -157,15 +165,21 @@ const AffordabilityReport = ({
               </Box>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Box sx={{ 
-                p: 2.5, 
-                border: '1px solid', 
-                borderColor: 'grey.200', 
-                borderRadius: 2,
-                backgroundColor: 'common.white',
-                textAlign: 'center'
-              }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Box
+                sx={{
+                  p: 2.5,
+                  border: '1px solid',
+                  borderColor: 'grey.200',
+                  borderRadius: 2,
+                  backgroundColor: 'common.white',
+                  textAlign: 'center',
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 1 }}
+                >
                   Total Expenses
                 </Typography>
                 <Typography variant="h6" sx={{ fontWeight: 600, color: 'error.main' }}>
@@ -174,15 +188,21 @@ const AffordabilityReport = ({
               </Box>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Box sx={{ 
-                p: 2.5, 
-                border: '1px solid', 
-                borderColor: 'grey.200', 
-                borderRadius: 2,
-                backgroundColor: 'common.white',
-                textAlign: 'center'
-              }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Box
+                sx={{
+                  p: 2.5,
+                  border: '1px solid',
+                  borderColor: 'grey.200',
+                  borderRadius: 2,
+                  backgroundColor: 'common.white',
+                  textAlign: 'center',
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 1 }}
+                >
                   Surplus/Deficit
                 </Typography>
                 <Typography
@@ -197,15 +217,21 @@ const AffordabilityReport = ({
               </Box>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Box sx={{ 
-                p: 2.5, 
-                border: '1px solid', 
-                borderColor: 'grey.200', 
-                borderRadius: 2,
-                backgroundColor: 'common.white',
-                textAlign: 'center'
-              }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Box
+                sx={{
+                  p: 2.5,
+                  border: '1px solid',
+                  borderColor: 'grey.200',
+                  borderRadius: 2,
+                  backgroundColor: 'common.white',
+                  textAlign: 'center',
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 1 }}
+                >
                   DTI Ratio
                 </Typography>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -214,15 +240,21 @@ const AffordabilityReport = ({
               </Box>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Box sx={{ 
-                p: 2.5, 
-                border: '1px solid', 
-                borderColor: 'grey.200', 
-                borderRadius: 2,
-                backgroundColor: 'common.white',
-                textAlign: 'center'
-              }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Box
+                sx={{
+                  p: 2.5,
+                  border: '1px solid',
+                  borderColor: 'grey.200',
+                  borderRadius: 2,
+                  backgroundColor: 'common.white',
+                  textAlign: 'center',
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 1 }}
+                >
                   Monthly Repayment
                 </Typography>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -231,15 +263,21 @@ const AffordabilityReport = ({
               </Box>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Box sx={{ 
-                p: 2.5, 
-                border: '1px solid', 
-                borderColor: 'grey.200', 
-                borderRadius: 2,
-                backgroundColor: 'common.white',
-                textAlign: 'center'
-              }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Box
+                sx={{
+                  p: 2.5,
+                  border: '1px solid',
+                  borderColor: 'grey.200',
+                  borderRadius: 2,
+                  backgroundColor: 'common.white',
+                  textAlign: 'center',
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 1 }}
+                >
                   Remaining Surplus
                 </Typography>
                 <Typography
@@ -254,32 +292,45 @@ const AffordabilityReport = ({
               </Box>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Box sx={{ 
-                p: 2.5, 
-                border: '1px solid', 
-                borderColor: 'grey.200', 
-                borderRadius: 2,
-                backgroundColor: 'common.white',
-                textAlign: 'center'
-              }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Box
+                sx={{
+                  p: 2.5,
+                  border: '1px solid',
+                  borderColor: 'grey.200',
+                  borderRadius: 2,
+                  backgroundColor: 'common.white',
+                  textAlign: 'center',
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 1 }}
+                >
                   Coverage Ratio
                 </Typography>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  {mortgageEstimate > 0 ? Math.round((latest.surplus / mortgageEstimate) * 100) : 0}%
+                  {mortgageEstimate > 0 ? Math.round((latest.surplus / mortgageEstimate) * 100) : 0}
+                  %
                 </Typography>
               </Box>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Box sx={{ 
-                p: 2.5, 
-                border: '1px solid', 
-                borderColor: 'grey.200', 
-                borderRadius: 2,
-                backgroundColor: 'common.white',
-                textAlign: 'center'
-              }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Box
+                sx={{
+                  p: 2.5,
+                  border: '1px solid',
+                  borderColor: 'grey.200',
+                  borderRadius: 2,
+                  backgroundColor: 'common.white',
+                  textAlign: 'center',
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 1 }}
+                >
                   Risk Assessment
                 </Typography>
                 <Chip
@@ -292,9 +343,9 @@ const AffordabilityReport = ({
                         : 'error'
                   }
                   size="medium"
-                  sx={{ 
+                  sx={{
                     fontWeight: 600,
-                    fontSize: '0.875rem'
+                    fontSize: '0.875rem',
                   }}
                 />
               </Box>

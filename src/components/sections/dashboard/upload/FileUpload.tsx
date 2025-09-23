@@ -74,14 +74,16 @@ const FileUpload = ({ onFileUpload, onClearData, isUploading = false }: FileUplo
   };
 
   return (
-    <Card sx={{ 
-      backgroundColor: 'common.white', 
-      width: 1, 
-      mb: 4, 
-      mt: 3,
-      borderRadius: 3,
-      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-    }}>
+    <Card
+      sx={{
+        backgroundColor: 'common.white',
+        width: 1,
+        mb: 4,
+        mt: 3,
+        borderRadius: 3,
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+      }}
+    >
       <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
         <Stack spacing={4}>
           <Box>
@@ -96,7 +98,8 @@ const FileUpload = ({ onFileUpload, onClearData, isUploading = false }: FileUplo
               Upload Bank Statements
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-              Upload your bank statement PDFs for comprehensive financial analysis and affordability assessment.
+              Upload your bank statement PDFs for comprehensive financial analysis and affordability
+              assessment.
             </Typography>
           </Box>
 
@@ -164,11 +167,11 @@ const FileUpload = ({ onFileUpload, onClearData, isUploading = false }: FileUplo
                   size="large"
                   startIcon={<IconifyIcon icon="material-symbols:upload" />}
                   disabled={isUploading}
-                  sx={{ 
+                  sx={{
                     minWidth: 160,
                     py: 1.5,
                     fontSize: '1rem',
-                    fontWeight: 600
+                    fontWeight: 600,
                   }}
                 >
                   Choose Files
