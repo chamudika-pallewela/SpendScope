@@ -23,7 +23,14 @@ declare module '@mui/material/styles' {
 }
 
 const typography: TypographyOptions = {
-  fontFamily: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'].join(','),
+  fontFamily: [
+    'Inter',
+    '-apple-system',
+    'BlinkMacSystemFont',
+    'Segoe UI',
+    'Roboto',
+    'sans-serif',
+  ].join(','),
   fontWeightLight: 300,
   fontWeightRegular: 400,
   fontWeightMedium: 500,

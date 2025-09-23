@@ -13,7 +13,6 @@ const FileUpload = ({ onFileUpload, onClearData, isUploading = false }: FileUplo
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { up } = useBreakpoints();
-  const upSM = up('sm');
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();

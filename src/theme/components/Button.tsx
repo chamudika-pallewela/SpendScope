@@ -1,6 +1,5 @@
 import { Theme } from '@mui/material';
 import { Components } from '@mui/material/styles/components';
-import pxToRem from 'theme/functions/pxToRem';
 
 declare module '@mui/material' {
   interface ButtonPropsColorOverrides {
