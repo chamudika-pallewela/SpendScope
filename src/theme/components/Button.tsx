@@ -12,28 +12,35 @@ const ButtonComponent: Components<Omit<Theme, 'components'>>['MuiButton'] = {
   styleOverrides: {
     root: ({ theme }) => ({
       ...theme.typography.button,
+      borderRadius: theme.shape.borderRadius * 2, // More modern rounded corners
+      textTransform: 'none', // Remove capitalization
+      fontWeight: 500,
       '&.Mui-disabled': {
         backgroundColor: theme.palette.action.disabled,
         boxShadow: 'none',
         color: theme.palette.text.disabled,
       },
       '&:hover': {
-        boxShadow: theme.shadows[5],
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        transform: 'translateY(-1px)',
+        transition: 'all 0.2s ease-in-out',
       },
     }),
     text: ({ theme }) => ({
       backgroundColor: 'transparent',
       '&:hover': {
-        backgroundColor: 'transparent',
-        boxShadow: theme.shadows[0],
+        backgroundColor: theme.palette.action.hover,
+        boxShadow: 'none',
+        transform: 'none',
       },
     }),
     outlined: ({ theme }) => ({
-      ...theme.typography.caption,
-      fontWeight: theme.typography.fontWeightMedium,
-      paddingTop: theme.spacing(1),
-      paddingBottom: theme.spacing(1),
-      borderRadius: theme.shape.borderRadius * 12.5,
+      ...theme.typography.button,
+      fontWeight: 500,
+      paddingTop: theme.spacing(1.5),
+      paddingBottom: theme.spacing(1.5),
+      borderRadius: theme.shape.borderRadius * 2,
+      borderWidth: '1.5px',
     }),
     textPrimary: ({ theme }) => ({
       '&.Mui-disabled': {
@@ -54,23 +61,28 @@ const ButtonComponent: Components<Omit<Theme, 'components'>>['MuiButton'] = {
     }),
     sizeSmall: ({ theme }) => ({
       ...theme.typography.button,
-      lineHeight: 1.1,
-      paddingLeft: pxToRem(8),
-      paddingRight: pxToRem(8),
+      fontSize: theme.typography.pxToRem(12),
+      lineHeight: 1.4,
+      paddingTop: theme.spacing(1),
+      paddingBottom: theme.spacing(1),
+      paddingLeft: theme.spacing(2),
+      paddingRight: theme.spacing(2),
     }),
     sizeMedium: ({ theme }) => ({
-      fontSize: theme.typography.pxToRem(15),
-      lineHeight: 1.6,
-      paddingTop: pxToRem(7),
-      paddingBottom: pxToRem(7),
-      paddingLeft: pxToRem(14),
-      paddingRight: pxToRem(14),
-    }),
-    sizeLarge: ({ theme }) => ({
-      fontSize: theme.typography.pxToRem(18),
-      lineHeight: 1.8,
+      fontSize: theme.typography.pxToRem(14),
+      lineHeight: 1.4,
+      paddingTop: theme.spacing(1.5),
+      paddingBottom: theme.spacing(1.5),
       paddingLeft: theme.spacing(3),
       paddingRight: theme.spacing(3),
+    }),
+    sizeLarge: ({ theme }) => ({
+      fontSize: theme.typography.pxToRem(16),
+      lineHeight: 1.4,
+      paddingTop: theme.spacing(2),
+      paddingBottom: theme.spacing(2),
+      paddingLeft: theme.spacing(4),
+      paddingRight: theme.spacing(4),
     }),
   },
 };

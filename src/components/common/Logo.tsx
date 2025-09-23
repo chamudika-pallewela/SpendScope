@@ -5,8 +5,10 @@ import { Fragment } from 'react/jsx-runtime';
 const Logo = () => {
   return (
     <Fragment>
-      <Image src="/analyzr-ai/bankdash.svg" alt="Logo" sx={{ width: 36 }} />
-      <Typography variant="h2">Analyzr.AI</Typography>
+      <Image src="/analyzr-ai/bankdash.svg" alt="Logo" sx={{ width: 40 }} />
+      <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
+        BankWise
+      </Typography>
     </Fragment>
   );
 };

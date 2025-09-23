@@ -56,105 +56,139 @@ const AffordabilityReport = ({
   if (!latest) return null;
 
   return (
-    <Box sx={{ mt: 2, height: '100%', display: 'flex' }}>
-      {/* Section container (not a Card) */}
+    <Box sx={{ mt: 3, height: '100%', display: 'flex' }}>
+      {/* Section container with improved styling */}
       <Box
         sx={{
           flex: 1,
           border: '1px solid',
           borderColor: 'grey.200',
           backgroundColor: 'common.white',
-          borderRadius: 2,
-          p: { xs: 2, sm: 3 },
+          borderRadius: 3,
+          p: { xs: 3, sm: 4 },
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
         }}
       >
-        <Stack spacing={2}>
-          <Typography
-            sx={{
-              fontSize: { xs: 'body2.fontSize', md: 'h6.fontSize' },
-              fontWeight: 600,
-              color: 'text.primary',
-            }}
-          >
-            C. Affordability Report
-          </Typography>
-
-          <Typography variant="caption" color="text.secondary">
-            How It Works: Net Income – Total Expenses = Surplus/Deficit • Debt-to-Income Ratio (DTI)
-            • Monthly Surplus • Compare against estimated mortgage repayment • Verdict
-          </Typography>
-
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={2}
-            alignItems={{ xs: 'stretch', sm: 'center' }}
-          >
-            <TextField
-              type="number"
-              label="Estimated Repayment (per month)"
-              value={estimateInput}
-              onChange={(e) => setEstimateInput(e.target.value)}
-              size="small"
-              sx={{ maxWidth: 260 }}
-              inputProps={{ min: 0 }}
-              helperText="Enter any monthly commitment (mortgage, rent, loan, etc.)"
-              InputProps={{
-                startAdornment: <InputAdornment position="start">£</InputAdornment>,
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const v = Number(estimateInput || 0);
-                  setMortgageEstimate(isNaN(v) ? 0 : v);
-                }
-              }}
-            />
-            <Button
-              variant="contained"
-              color="primary"
-              size="small"
-              onClick={() => {
-                const v = Number(estimateInput || 0);
-                setMortgageEstimate(isNaN(v) ? 0 : v);
+        <Stack spacing={3}>
+          <Box>
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 600,
+                color: 'text.primary',
+                mb: 1,
               }}
             >
-              Apply
-            </Button>
-            <Typography variant="caption" color="text.secondary">
-              Month: <b>{latest.monthKey}</b>
+              Affordability Report
             </Typography>
-          </Stack>
 
-          <Divider sx={{ my: 1 }} />
-          <Grid container spacing={1.5}>
+            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+              Comprehensive analysis of your financial capacity for loan commitments. 
+              Calculates surplus, debt-to-income ratio, and provides risk assessment.
+            </Typography>
+          </Box>
+
+          <Box sx={{ 
+            p: 3, 
+            backgroundColor: 'grey.50', 
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'grey.200'
+          }}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={3}
+              alignItems={{ xs: 'stretch', sm: 'flex-end' }}
+            >
+              <TextField
+                type="number"
+                label="Estimated Monthly Repayment"
+                value={estimateInput}
+                onChange={(e) => setEstimateInput(e.target.value)}
+                size="medium"
+                sx={{ minWidth: 280 }}
+                inputProps={{ min: 0 }}
+                helperText="Enter your expected monthly mortgage, rent, or loan payment"
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">£</InputAdornment>,
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const v = Number(estimateInput || 0);
+                    setMortgageEstimate(isNaN(v) ? 0 : v);
+                  }
+                }}
+              />
+              <Button
+                variant="contained"
+                color="primary"
+                size="large"
+                onClick={() => {
+                  const v = Number(estimateInput || 0);
+                  setMortgageEstimate(isNaN(v) ? 0 : v);
+                }}
+                sx={{ minWidth: 120 }}
+              >
+                Calculate
+              </Button>
+            </Stack>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+              Analysis Period: <strong>{latest.monthKey}</strong>
+            </Typography>
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+          <Grid container spacing={2}>
             <Grid item xs={6} md={3}>
-              <Box sx={{ p: 1.25, border: '1px solid', borderColor: 'grey.200', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Net income
+              <Box sx={{ 
+                p: 2.5, 
+                border: '1px solid', 
+                borderColor: 'grey.200', 
+                borderRadius: 2,
+                backgroundColor: 'common.white',
+                textAlign: 'center'
+              }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  Net Income
                 </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: 'success.main' }}>
                   {fmt(latest.income)}
                 </Typography>
               </Box>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Box sx={{ p: 1.25, border: '1px solid', borderColor: 'grey.200', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Total expenses
+              <Box sx={{ 
+                p: 2.5, 
+                border: '1px solid', 
+                borderColor: 'grey.200', 
+                borderRadius: 2,
+                backgroundColor: 'common.white',
+                textAlign: 'center'
+              }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  Total Expenses
                 </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  -{fmt(latest.expenses)}
+                <Typography variant="h6" sx={{ fontWeight: 600, color: 'error.main' }}>
+                  {fmt(latest.expenses)}
                 </Typography>
               </Box>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Box sx={{ p: 1.25, border: '1px solid', borderColor: 'grey.200', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Surplus/deficit
+              <Box sx={{ 
+                p: 2.5, 
+                border: '1px solid', 
+                borderColor: 'grey.200', 
+                borderRadius: 2,
+                backgroundColor: 'common.white',
+                textAlign: 'center'
+              }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  Surplus/Deficit
                 </Typography>
                 <Typography
-                  variant="body2"
+                  variant="h6"
                   sx={{
-                    fontWeight: 700,
+                    fontWeight: 600,
                     color: latest.surplus >= 0 ? 'success.main' : 'error.main',
                   }}
                 >
@@ -163,34 +197,55 @@ const AffordabilityReport = ({
               </Box>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Box sx={{ p: 1.25, border: '1px solid', borderColor: 'grey.200', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  DTI ratio
+              <Box sx={{ 
+                p: 2.5, 
+                border: '1px solid', 
+                borderColor: 'grey.200', 
+                borderRadius: 2,
+                backgroundColor: 'common.white',
+                textAlign: 'center'
+              }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  DTI Ratio
                 </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   {(latest.dti * 100).toFixed(1)}%
                 </Typography>
               </Box>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Box sx={{ p: 1.25, border: '1px solid', borderColor: 'grey.200', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Repayment (applied)
+              <Box sx={{ 
+                p: 2.5, 
+                border: '1px solid', 
+                borderColor: 'grey.200', 
+                borderRadius: 2,
+                backgroundColor: 'common.white',
+                textAlign: 'center'
+              }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  Monthly Repayment
                 </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   {fmt(mortgageEstimate)}
                 </Typography>
               </Box>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Box sx={{ p: 1.25, border: '1px solid', borderColor: 'grey.200', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Surplus after repay.
+              <Box sx={{ 
+                p: 2.5, 
+                border: '1px solid', 
+                borderColor: 'grey.200', 
+                borderRadius: 2,
+                backgroundColor: 'common.white',
+                textAlign: 'center'
+              }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  Remaining Surplus
                 </Typography>
                 <Typography
-                  variant="body2"
+                  variant="h6"
                   sx={{
-                    fontWeight: 700,
+                    fontWeight: 600,
                     color: latest.surplus - mortgageEstimate >= 0 ? 'success.main' : 'error.main',
                   }}
                 >
@@ -199,30 +254,33 @@ const AffordabilityReport = ({
               </Box>
             </Grid>
             <Grid item xs={6} md={3}>
-              <Box sx={{ p: 1.25, border: '1px solid', borderColor: 'grey.200', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Coverage
+              <Box sx={{ 
+                p: 2.5, 
+                border: '1px solid', 
+                borderColor: 'grey.200', 
+                borderRadius: 2,
+                backgroundColor: 'common.white',
+                textAlign: 'center'
+              }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  Coverage Ratio
                 </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  {mortgageEstimate > 0 ? Math.round((latest.surplus / mortgageEstimate) * 100) : 0}
-                  %
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {mortgageEstimate > 0 ? Math.round((latest.surplus / mortgageEstimate) * 100) : 0}%
                 </Typography>
               </Box>
             </Grid>
-            <Grid item xs={12} md={3}>
-              <Box
-                sx={{
-                  p: 1.25,
-                  border: '1px solid',
-                  borderColor: 'grey.200',
-                  borderRadius: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <Typography variant="caption" color="text.secondary">
-                  Verdict
+            <Grid item xs={6} md={3}>
+              <Box sx={{ 
+                p: 2.5, 
+                border: '1px solid', 
+                borderColor: 'grey.200', 
+                borderRadius: 2,
+                backgroundColor: 'common.white',
+                textAlign: 'center'
+              }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  Risk Assessment
                 </Typography>
                 <Chip
                   label={latest.verdict}
@@ -233,8 +291,11 @@ const AffordabilityReport = ({
                         ? 'warning'
                         : 'error'
                   }
-                  size="small"
-                  sx={{ fontWeight: 700 }}
+                  size="medium"
+                  sx={{ 
+                    fontWeight: 600,
+                    fontSize: '0.875rem'
+                  }}
                 />
               </Box>
             </Grid>
