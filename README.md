@@ -1,10 +1,7 @@
 # Analyzr.AI
 
-![license](https://img.shields.io/badge/license-MIT-blue.svg)
-
 > AI-powered financial transaction analysis platform that transforms bank statements into actionable insights.
 
-![preview](public/preview.png)
 
 ## 🚀 Features
 
@@ -103,9 +100,6 @@
 4. **Export Reports**: Download PDF or CSV reports for your records
 5. **Track History**: View all your previous uploads and analyses
 
-## 📝 License
-
-Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
 
 ---
 
