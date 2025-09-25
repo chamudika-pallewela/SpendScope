@@ -2,7 +2,7 @@ import { Box, Card, CardContent, Grid, Stack, Typography } from '@mui/material';
 import IconifyIcon from 'components/base/IconifyIcon';
 import { TransactionResponse } from 'config/categories';
 import { useMemo } from 'react';
-import { analyzeRisks } from 'helpers/utils';
+import { analyzeRisks, formatDateRange } from 'helpers/utils';
 
 interface TransactionSummaryProps {
   transactionData: TransactionResponse | null;
@@ -28,13 +28,25 @@ const TransactionSummary = ({ transactionData }: TransactionSummaryProps) => {
     const avgTransactionAmount =
       totalTransactions > 0 ? (totalMoneyIn + totalMoneyOut) / totalTransactions : 0;
 
-    const dateRange =
-      transactions.length > 0
-        ? {
-            start: new Date(transactions[0].date),
-            end: new Date(transactions[transactions.length - 1].date),
-          }
-        : null;
+    const dateRange = (() => {
+      if (transactions.length === 0) return null;
+
+      // Find valid dates from all transactions
+      const validDates = transactions
+        .map((t) => {
+          const date = new Date(t.date);
+          return isNaN(date.getTime()) ? null : date;
+        })
+        .filter((date) => date !== null)
+        .sort((a, b) => a!.getTime() - b!.getTime());
+
+      if (validDates.length === 0) return null;
+
+      return {
+        start: validDates[0]!,
+        end: validDates[validDates.length - 1]!,
+      };
+    })();
 
     return {
       totalMoneyIn,
@@ -277,8 +289,7 @@ const TransactionSummary = ({ transactionData }: TransactionSummaryProps) => {
                 />
                 <Typography variant="body2" color="text.secondary">
                   <strong>Date Range:</strong>{' '}
-                  {summaryData.dateRange.start.toLocaleDateString('en-GB')} -{' '}
-                  {summaryData.dateRange.end.toLocaleDateString('en-GB')}
+                  {formatDateRange(summaryData.dateRange.start, summaryData.dateRange.end)}
                 </Typography>
               </Stack>
             </Box>

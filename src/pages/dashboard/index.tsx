@@ -438,7 +438,10 @@ const Dashboard = () => {
         };
         const netRow = (transaction.money_in || 0) - (transaction.money_out || 0);
         html += `<tr>
-          <td>${new Date(transaction.date).toLocaleDateString('en-GB')}</td>
+          <td>${(() => {
+            const date = new Date(transaction.date);
+            return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString('en-GB');
+          })()}</td>
           <td></td>
           <td class="desc">${transaction.description}${transaction.note ? `<span class="note">${transaction.note}</span>` : ''}</td>
           <td class="right">${transaction.money_in ? `<span class="pos">${fmt(transaction.money_in)}</span>` : ''}</td>
@@ -477,7 +480,10 @@ const Dashboard = () => {
             };
             const netRow = (transaction.money_in || 0) - (transaction.money_out || 0);
             html += `<tr>
-              <td>${new Date(transaction.date).toLocaleDateString('en-GB')}</td>
+              <td>${(() => {
+                const date = new Date(transaction.date);
+                return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString('en-GB');
+              })()}</td>
               <td style="text-transform:capitalize">${sub}</td>
               <td class="desc">${transaction.description}${transaction.note ? `<span class="note">${transaction.note}</span>` : ''}</td>
               <td class="right">${transaction.money_in ? `<span class="pos">${fmt(transaction.money_in)}</span>` : ''}</td>

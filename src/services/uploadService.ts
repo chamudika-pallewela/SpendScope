@@ -139,7 +139,18 @@ export const getUserUploads = async (userId: string): Promise<UploadSummary[]> =
         customerName: uploadData.customerName,
         bank: uploadData.bank || 'Unknown Bank',
         dateRange: uploadData.dateRange
-          ? `${uploadData.dateRange.start} to ${uploadData.dateRange.end}`
+          ? (() => {
+              try {
+                const start = new Date(uploadData.dateRange.start);
+                const end = new Date(uploadData.dateRange.end);
+                if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                  return 'Invalid Date Range';
+                }
+                return `${start.toLocaleDateString('en-GB')} - ${end.toLocaleDateString('en-GB')}`;
+              } catch {
+                return 'Invalid Date Range';
+              }
+            })()
           : 'Unknown Date Range',
         uploadDate: new Date(uploadData.uploadDate).toLocaleDateString(),
         transactionCount,

@@ -25,6 +25,35 @@ export const numberFormat = (number: number, notation: 'standard' | 'compact' = 
     notation,
   }).format(number);
 
+// Enhanced date formatting utilities
+export const formatDate = (date: Date | string): string => {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) {
+    return 'Invalid Date';
+  }
+  return d.toLocaleDateString('en-GB');
+};
+
+export const formatDateRange = (startDate: Date | string, endDate: Date | string): string => {
+  const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
+  const end = typeof endDate === 'string' ? new Date(endDate) : endDate;
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return 'Invalid Date Range';
+  }
+
+  return `${formatDate(start)} - ${formatDate(end)}`;
+};
+
+// Safe date formatting that handles invalid dates gracefully
+export const safeFormatDate = (date: Date | string, fallback: string = 'Invalid Date'): string => {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) {
+    return fallback;
+  }
+  return d.toLocaleDateString('en-GB');
+};
+
 // ---------------- AML / Risk Analysis ----------------
 import { Transaction } from 'config/categories';
 
@@ -45,6 +74,17 @@ export interface MonthlyRiskScore {
 
 const toMonthKey = (dateStr: string): string => {
   const d = new Date(dateStr);
+
+  // Validate the date
+  if (isNaN(d.getTime())) {
+    console.warn(`Invalid date encountered: ${dateStr}`);
+    // Return a fallback date (current month)
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  }
+
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   return `${y}-${m}`;
@@ -71,8 +111,15 @@ export function analyzeRisks(transactions: Transaction[]): {
   >();
 
   const knownPayees = new Set<string>();
+  const overdraftDays = new Map<string, Set<string>>(); // month -> set of days in overdraft
 
   transactions.forEach((t, idx) => {
+    // Skip transactions with invalid dates
+    if (!t.date || isNaN(new Date(t.date).getTime())) {
+      console.warn(`Skipping transaction with invalid date: ${t.date}`);
+      return;
+    }
+
     const monthKey = toMonthKey(t.date);
     if (!monthlyMap.has(monthKey)) {
       monthlyMap.set(monthKey, {
@@ -88,19 +135,44 @@ export function analyzeRisks(transactions: Transaction[]): {
     }
     const m = monthlyMap.get(monthKey)!;
 
-    // Track totals
+    // Track totals - Updated for actual category structure
     if (t.money_in) m.totalIncome += t.money_in;
-    if (t.category === 'enjoyment' && t.subcategory === 'gambling' && t.money_out)
-      m.gamblingOut += t.money_out;
-    if (t.category === 'other income' && t.subcategory === 'cash deposits' && t.money_in)
-      m.cashIn.push(t.money_in);
-    if (
-      (t.category === 'bank transactions' && /transfer/i.test(t.subcategory)) ||
-      (/transfer|remittance|international/i.test(t.description) && t.money_out)
-    ) {
-      if (t.money_out) m.transfersOut += t.money_out;
-    }
-    if ((t.category === 'salary' || /salary|payroll/i.test(t.description)) && t.money_in) {
+
+    // Gambling detection
+    const isGambling =
+      (t.category === 'Lifestyle & Discretionary' &&
+        t.subcategory === 'Entertainment' &&
+        /gambling|betting|casino|lottery|poker|bingo|sports betting|bet|wager|stake/i.test(
+          t.description || t.raw_description || '',
+        )) ||
+      /gambling|betting|casino|lottery|poker|bingo|sports betting|bet|wager|stake/i.test(
+        t.description || t.raw_description || '',
+      );
+    if (isGambling && t.money_out) m.gamblingOut += t.money_out;
+
+    // Cash deposit detection
+    const isCashDepositMonthly =
+      (t.category === 'Income Categories' &&
+        /cash|deposit|atm|withdrawal|bank transfer/i.test(
+          t.description || t.raw_description || '',
+        )) ||
+      /cash deposit|cash in|atm deposit|bank deposit/i.test(
+        t.description || t.raw_description || '',
+      );
+    if (isCashDepositMonthly && t.money_in) m.cashIn.push(t.money_in);
+
+    // Transfer detection
+    const isTransfer =
+      (t.category === 'Financial Commitments' && t.subcategory === 'Transfer out') ||
+      /transfer|remittance|international|swift|iban|sepa|wire|payment to/i.test(
+        t.description || t.raw_description || '',
+      );
+    if (isTransfer && t.money_out) m.transfersOut += t.money_out;
+    // Salary detection - Updated for actual category structure
+    const isSalary =
+      (t.category === 'Income Categories' && t.subcategory === 'Salary (PAYE)') ||
+      /salary|payroll|wage|pay/i.test(t.description || t.raw_description || '');
+    if (isSalary && t.money_in) {
       m.salaryDates.push(t.date);
     }
     const dayKey = new Date(t.date).toISOString().slice(0, 10);
@@ -113,62 +185,239 @@ export function analyzeRisks(transactions: Transaction[]): {
     const reasons: string[] = [];
     let severity: RiskSeverity = 'None';
 
-    // Gambling → frequency, % of income, bursts after salary
-    if (t.category === 'enjoyment' && t.subcategory === 'gambling' && t.money_out) {
+    // Enhanced Gambling Risk Indicators - Updated for actual category structure
+    const isGamblingTransaction =
+      ((t.category === 'Lifestyle & Discretionary' &&
+        t.subcategory === 'Entertainment' &&
+        /gambling|betting|casino|lottery|poker|bingo|sports betting|bet|wager|stake/i.test(
+          t.description || t.raw_description || '',
+        )) ||
+        /gambling|betting|casino|lottery|poker|bingo|sports betting|bet|wager|stake/i.test(
+          t.description || t.raw_description || '',
+        )) &&
+      t.money_out;
+
+    if (isGamblingTransaction && t.money_out) {
       const pctIncome = m.totalIncome > 0 ? (t.money_out / m.totalIncome) * 100 : 0;
-      if (pctIncome >= 20) {
-        reasons.push(`Gambling outflow ${pctIncome.toFixed(1)}% of monthly income`);
+
+      // Frequency check - count gambling transactions this month
+      const gamblingCount = transactions.filter(
+        (tx, txIdx) =>
+          txIdx <= idx &&
+          toMonthKey(tx.date) === monthKey &&
+          ((tx.category === 'Lifestyle & Discretionary' &&
+            tx.subcategory === 'Entertainment' &&
+            /gambling|betting|casino|lottery|poker|bingo|sports betting|bet|wager|stake/i.test(
+              tx.description || tx.raw_description || '',
+            )) ||
+            /gambling|betting|casino|lottery|poker|bingo|sports betting|bet|wager|stake/i.test(
+              tx.description || tx.raw_description || '',
+            )),
+      ).length;
+
+      // Risk weighting based on frequency and income percentage
+      if (pctIncome >= 15) {
+        reasons.push(`🚨 HIGH RISK: Gambling ${pctIncome.toFixed(1)}% of income (>15% threshold)`);
         severity = 'High';
       } else if (pctIncome >= 10) {
-        reasons.push(`Gambling outflow ${pctIncome.toFixed(1)}% of monthly income`);
+        reasons.push(`⚠️ MEDIUM RISK: Gambling ${pctIncome.toFixed(1)}% of income (10-15% range)`);
         severity = 'Medium';
+      } else if (pctIncome >= 5) {
+        reasons.push(`🟡 AMBER: Gambling ${pctIncome.toFixed(1)}% of income (5-10% range)`);
+        severity = 'Low';
       } else {
-        reasons.push('Gambling transaction');
+        reasons.push('Gambling transaction detected');
         severity = 'Low';
       }
+
+      // Frequency risk (more than 3-4 times per month)
+      if (gamblingCount > 4) {
+        reasons.push(`🚨 HIGH FREQUENCY: ${gamblingCount} gambling transactions this month`);
+        if (severity === 'Low') severity = 'High';
+        else if (severity === 'Medium') severity = 'High';
+      } else if (gamblingCount > 3) {
+        reasons.push(`⚠️ FREQUENT: ${gamblingCount} gambling transactions this month`);
+        if (severity === 'Low') severity = 'Medium';
+      }
+
+      // Salary burst detection (gambling immediately after salary)
       const recentSalary = m.salaryDates.some(
         (sd) =>
           Math.abs((new Date(t.date).getTime() - new Date(sd).getTime()) / (1000 * 3600 * 24)) <= 3,
       );
       if (recentSalary) {
-        reasons.push('Gambling burst within 3 days after salary');
+        reasons.push('🚨 SALARY BURST: Gambling within 3 days after salary credit');
         if (severity === 'Low') severity = 'Medium';
+        else if (severity === 'Medium') severity = 'High';
       }
     }
 
-    // Cash deposits → large single, frequent, or near-threshold deposits
-    if (t.category === 'other income' && t.subcategory === 'cash deposits' && t.money_in) {
-      if (t.money_in >= 9000) {
-        reasons.push(`Large cash deposit £${t.money_in.toLocaleString('en-GB')}`);
-        severity = 'High';
+    // Enhanced Cash Deposit Risk Indicators - Updated for actual category structure
+    const isCashDeposit =
+      ((t.category === 'Income Categories' &&
+        /cash|deposit|atm|withdrawal|bank transfer/i.test(
+          t.description || t.raw_description || '',
+        )) ||
+        /cash deposit|cash in|atm deposit|bank deposit/i.test(
+          t.description || t.raw_description || '',
+        )) &&
+      t.money_in;
+
+    if (isCashDeposit && t.money_in) {
+      // Count cash deposits this month for frequency analysis
+      const cashDepositCount = transactions.filter(
+        (tx, txIdx) =>
+          txIdx <= idx &&
+          toMonthKey(tx.date) === monthKey &&
+          ((tx.category === 'Income Categories' &&
+            /cash|deposit|atm|withdrawal|bank transfer/i.test(
+              tx.description || tx.raw_description || '',
+            )) ||
+            /cash deposit|cash in|atm deposit|bank deposit/i.test(
+              tx.description || tx.raw_description || '',
+            )),
+      ).length;
+
+      // Large single deposits (>£1,000 or proportionally high vs salary)
+      const salaryThreshold = m.totalIncome * 0.1; // 10% of monthly income
+      const isLargeVsSalary = t.money_in >= salaryThreshold && salaryThreshold > 0;
+
+      if (t.money_in >= 1000 || isLargeVsSalary) {
+        if (t.money_in >= 1000) {
+          reasons.push(
+            `🚨 LARGE CASH DEPOSIT: £${t.money_in.toLocaleString('en-GB')} (>£1,000 threshold)`,
+          );
+          severity = 'High';
+        } else {
+          reasons.push(
+            `⚠️ HIGH vs SALARY: £${t.money_in.toLocaleString('en-GB')} (${((t.money_in / m.totalIncome) * 100).toFixed(1)}% of income)`,
+          );
+          severity = 'Medium';
+        }
       }
-      if (t.money_in >= 8500 && t.money_in < 9000) {
-        reasons.push(`Near-threshold cash deposit £${t.money_in.toLocaleString('en-GB')}`);
+
+      // Near-threshold deposits (£9,000/£9,500 - structuring risk)
+      if (t.money_in >= 9000 && t.money_in <= 9500) {
+        reasons.push(
+          `🚨 STRUCTURING RISK: Near-threshold deposit £${t.money_in.toLocaleString('en-GB')} (£9k-£9.5k range)`,
+        );
+        severity = 'High';
+      } else if (t.money_in >= 8500 && t.money_in < 9000) {
+        reasons.push(
+          `⚠️ NEAR-THRESHOLD: £${t.money_in.toLocaleString('en-GB')} (approaching £9k limit)`,
+        );
         if (severity !== 'High') severity = 'Medium';
       }
+
+      // Frequency risk (more than 2-3 per month)
+      if (cashDepositCount > 3) {
+        reasons.push(
+          `🚨 HIGH FREQUENCY: ${cashDepositCount} cash deposits this month (>3 threshold)`,
+        );
+        if (severity === 'Low') severity = 'High';
+        else if (severity === 'Medium') severity = 'High';
+      } else if (cashDepositCount > 2) {
+        reasons.push(`⚠️ FREQUENT: ${cashDepositCount} cash deposits this month (2-3 range)`);
+        if (severity === 'Low') severity = 'Medium';
+      }
+
+      // Unexplained deposits (no clear source)
+      const desc = (t.raw_description || t.description || '').toLowerCase();
+      const isUnexplained = !/salary|wage|pay|tip|cashback|refund|withdrawal|atm/i.test(desc);
+      if (isUnexplained && t.money_in >= 500) {
+        reasons.push(
+          `🟡 UNEXPLAINED: Cash deposit £${t.money_in.toLocaleString('en-GB')} without clear source`,
+        );
+        if (severity === 'None') severity = 'Low';
+      }
     }
 
-    // Large/Unexplained Transfers → new payees, international remittances
-    if (
+    // Enhanced Large/Unexplained Transfer Risk Indicators - Updated for actual category structure
+    const isTransferTransaction =
       t.money_out &&
-      (/transfer|remittance|international|swift|iban|sepa/i.test(t.description) ||
-        (t.category === 'bank transactions' && /transfer/i.test(t.subcategory)))
-    ) {
+      ((t.category === 'Financial Commitments' && t.subcategory === 'Transfer out') ||
+        /transfer|remittance|international|swift|iban|sepa|wire|payment to/i.test(
+          t.description || t.raw_description || '',
+        ));
+
+    if (isTransferTransaction && t.money_out) {
       const desc = (t.raw_description || t.description || '').toLowerCase();
       const isInternational = /international|swift|iban|sepa|fx|foreign/i.test(desc);
       const isNewPayee = !knownPayees.has(desc) && t.money_out >= 1000;
+
+      // International remittances to higher-risk jurisdictions
       if (isInternational && t.money_out >= 500) {
-        reasons.push('International remittance');
-        severity = 'High';
+        const highRiskJurisdictions = /russia|iran|north korea|syria|myanmar|afghanistan|belarus/i;
+        const isHighRiskJurisdiction = highRiskJurisdictions.test(desc);
+
+        if (isHighRiskJurisdiction) {
+          reasons.push(
+            `🚨 HIGH-RISK JURISDICTION: International transfer £${t.money_out.toLocaleString('en-GB')} to sanctioned/restricted country`,
+          );
+          severity = 'High';
+        } else {
+          reasons.push(
+            `⚠️ INTERNATIONAL: Remittance £${t.money_out.toLocaleString('en-GB')} to foreign jurisdiction`,
+          );
+          severity = 'High';
+        }
       }
+
+      // New payee transfers (high-value transfers to recently added recipients)
       if (isNewPayee) {
-        reasons.push('Transfer to new payee');
-        if (severity !== 'High') severity = 'Medium';
+        if (t.money_out >= 5000) {
+          reasons.push(
+            `🚨 NEW PAYEE HIGH-VALUE: £${t.money_out.toLocaleString('en-GB')} to recently added recipient`,
+          );
+          severity = 'High';
+        } else if (t.money_out >= 1000) {
+          reasons.push(
+            `⚠️ NEW PAYEE: £${t.money_out.toLocaleString('en-GB')} to recently added recipient`,
+          );
+          severity = 'Medium';
+        }
       }
+
+      // Round-number transfers (structuring pattern)
+      const isRoundNumber = /^[0-9]+000$/.test(t.money_out.toString()) && t.money_out >= 1000;
+      if (isRoundNumber) {
+        reasons.push(
+          `🟡 ROUND-NUMBER TRANSFER: £${t.money_out.toLocaleString('en-GB')} (potential structuring pattern)`,
+        );
+        if (severity === 'None') severity = 'Low';
+        else if (severity === 'Low') severity = 'Medium';
+      }
+
+      // Repeated transfers to same payee (frequency analysis)
+      const samePayeeCount = transactions.filter(
+        (tx, txIdx) =>
+          txIdx <= idx &&
+          tx.money_out &&
+          (tx.raw_description || tx.description || '').toLowerCase() === desc &&
+          toMonthKey(tx.date) === monthKey,
+      ).length;
+
+      if (samePayeeCount > 3 && t.money_out >= 1000) {
+        reasons.push(`🚨 REPEATED TRANSFERS: ${samePayeeCount} transfers to same payee this month`);
+        if (severity === 'Low') severity = 'High';
+        else if (severity === 'Medium') severity = 'High';
+      }
+
+      // Unexplained purpose (no clear business reason)
+      const hasClearPurpose =
+        /family|support|business|investment|loan|repayment|gift|donation/i.test(desc);
+      if (!hasClearPurpose && t.money_out >= 2000) {
+        reasons.push(
+          `🟡 UNEXPLAINED PURPOSE: £${t.money_out.toLocaleString('en-GB')} transfer without stated purpose`,
+        );
+        if (severity === 'None') severity = 'Low';
+        else if (severity === 'Low') severity = 'Medium';
+      }
+
       knownPayees.add(desc);
     }
 
-    // Rapid In–Out Flows → pass-through patterns
+    // 4. Rapid In–Out Flows ("Pass-Through" Accounts)
     const sameDay = m.passThroughDays.get(dayKey)!;
     const totalSameDay = sameDay.in + sameDay.out;
     const passThrough =
@@ -176,8 +425,88 @@ export function analyzeRisks(transactions: Transaction[]): {
       Math.min(sameDay.in, sameDay.out) / Math.max(sameDay.in, sameDay.out) >= 0.7 &&
       Math.abs((t.money_in || 0) - (t.money_out || 0)) < 50;
     if (passThrough && totalSameDay >= 1000) {
-      reasons.push('Rapid in-out pass-through detected');
+      reasons.push(
+        '🚨 PASS-THROUGH: Rapid in-out flows detected (money "hopping" between accounts)',
+      );
+      if (severity === 'None') severity = 'High';
+      else if (severity === 'Low') severity = 'High';
+    }
+
+    // 5. Additional Risk Categories
+
+    // Overdraft dependency (>50% of days in overdraft)
+    if (t.balance && t.balance < 0) {
+      if (!overdraftDays.has(monthKey)) {
+        overdraftDays.set(monthKey, new Set());
+      }
+      overdraftDays.get(monthKey)!.add(dayKey);
+    }
+
+    // High-cost credit use (payday loans)
+    const isPaydayLoan =
+      /payday|wonga|quickquid|provident|brighthouse|bright house|sunny|satsuma/i.test(
+        t.description || t.raw_description || '',
+      );
+    if (isPaydayLoan && t.money_out) {
+      reasons.push(
+        `🚨 HIGH-COST CREDIT: Payday loan repayment detected (£${t.money_out.toFixed(2)})`,
+      );
+      if (severity === 'None') severity = 'High';
+    }
+
+    // Crypto transactions
+    const cryptoExchanges = [
+      'coinbase',
+      'binance',
+      'kraken',
+      'bitfinex',
+      'gemini',
+      'crypto.com',
+      'etoro',
+      'robinhood',
+      'coinbase pro',
+      'kucoin',
+    ];
+    const isCryptoExchange = cryptoExchanges.some((exchange) =>
+      (t.description || t.raw_description || '').toLowerCase().includes(exchange),
+    );
+    if (isCryptoExchange && t.money_out) {
+      reasons.push(`⚠️ CRYPTO: Transfer to cryptocurrency exchange (£${t.money_out.toFixed(2)})`);
       if (severity === 'None') severity = 'Medium';
+    }
+
+    // Lifestyle mismatch (luxury spending vs income)
+    const luxuryKeywords = [
+      'louis vuitton',
+      'gucci',
+      'prada',
+      'rolex',
+      'cartier',
+      'tiffany',
+      'bentley',
+      'ferrari',
+      'lamborghini',
+      'porsche',
+      'louboutin',
+      'hermes',
+      'chanel',
+      'dior',
+    ];
+    const isLuxurySpending = luxuryKeywords.some((keyword) =>
+      (t.description || t.raw_description || '').toLowerCase().includes(keyword),
+    );
+
+    if (isLuxurySpending && t.money_out && t.money_out > 1000) {
+      const monthlyIncome = m.totalIncome;
+      const luxuryRatio = monthlyIncome > 0 ? (t.money_out / monthlyIncome) * 100 : 0;
+
+      if (luxuryRatio > 20) {
+        // More than 20% of monthly income on luxury item
+        reasons.push(
+          `🚨 LIFESTYLE MISMATCH: Luxury spending ${luxuryRatio.toFixed(1)}% of monthly income (£${t.money_out.toFixed(2)})`,
+        );
+        if (severity === 'None') severity = 'High';
+      }
     }
 
     const flagged = reasons.length > 0 && severity !== 'None';
@@ -209,6 +538,24 @@ export function analyzeRisks(transactions: Transaction[]): {
     if (m.transfersOut >= 5000) {
       score += 15;
       evidence.push(`High outbound transfers £${m.transfersOut.toLocaleString('en-GB')}`);
+    }
+
+    // Overdraft dependency assessment
+    const monthOverdraftDays = overdraftDays.get(monthKey);
+    if (monthOverdraftDays) {
+      const daysInMonth = new Date(monthKey + '-01').getDate();
+      const overdraftRatio = monthOverdraftDays.size / daysInMonth;
+      if (overdraftRatio > 0.5) {
+        score += 25;
+        evidence.push(
+          `Overdraft dependency: ${(overdraftRatio * 100).toFixed(1)}% of days in overdraft`,
+        );
+      } else if (overdraftRatio > 0.25) {
+        score += 10;
+        evidence.push(
+          `Frequent overdraft: ${(overdraftRatio * 100).toFixed(1)}% of days in overdraft`,
+        );
+      }
     }
     const passDays = Array.from(m.passThroughDays.values()).filter(
       (d) => d.in + d.out >= 1000 && Math.min(d.in, d.out) / Math.max(d.in, d.out) >= 0.7,

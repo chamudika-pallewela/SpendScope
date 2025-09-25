@@ -23,7 +23,7 @@ import {
   TransactionResponse,
 } from 'config/categories';
 import { useMemo, useState } from 'react';
-import { analyzeRisks } from 'helpers/utils';
+import { analyzeRisks, safeFormatDate } from 'helpers/utils';
 
 interface TransactionCategoriesProps {
   transactionData: TransactionResponse | null;
@@ -267,7 +267,7 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
         html += `<div class="tx">
           <div>
             <div style="font-weight:600">${t.description}</div>
-            <div class="meta">${new Date(t.date).toLocaleDateString('en-GB')} • Balance ${fmt(t.balance)}</div>
+            <div class="meta">${safeFormatDate(t.date)} • Balance ${fmt(t.balance)}</div>
           </div>
           <div>${t.money_in ? `<span class='pos'>+${fmt(t.money_in)}</span>` : ''}${t.money_out ? `<span class='neg'>-${fmt(t.money_out)}</span>` : ''}</div>
         </div>`;
@@ -295,7 +295,7 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
               html += `<div class="tx">
                 <div>
                   <div style="font-weight:600">${t.description}</div>
-                  <div class="meta">${new Date(t.date).toLocaleDateString('en-GB')} • Balance ${fmt(t.balance)}</div>
+                  <div class="meta">${safeFormatDate(t.date)} • Balance ${fmt(t.balance)}</div>
                 </div>
                 <div>${t.money_in ? `<span class='pos'>+${fmt(t.money_in)}</span>` : ''}${t.money_out ? `<span class='neg'>-${fmt(t.money_out)}</span>` : ''}</div>
               </div>`;
@@ -419,8 +419,7 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                           secondary={
                             <Stack spacing={0.5}>
                               <Typography variant="body2" color="text.secondary">
-                                {new Date(transaction.date).toLocaleDateString('en-GB')} •{' '}
-                                {transaction.category}
+                                {safeFormatDate(transaction.date)} • {transaction.category}
                                 {transaction.subcategory && ` • ${transaction.subcategory}`}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
@@ -665,9 +664,7 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                                         secondary={
                                           <Stack spacing={0.5}>
                                             <Typography variant="caption" color="text.secondary">
-                                              {new Date(transaction.date).toLocaleDateString(
-                                                'en-GB',
-                                              )}
+                                              {safeFormatDate(transaction.date)}
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary">
                                               Balance: {formatCurrency(transaction.balance)}
@@ -872,9 +869,7 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                                                                 variant="caption"
                                                                 color="text.secondary"
                                                               >
-                                                                {new Date(
-                                                                  transaction.date,
-                                                                ).toLocaleDateString('en-GB')}
+                                                                {safeFormatDate(transaction.date)}
                                                               </Typography>
                                                               <Typography
                                                                 variant="caption"
@@ -1076,9 +1071,9 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
                                                                     variant="caption"
                                                                     color="text.secondary"
                                                                   >
-                                                                    {new Date(
+                                                                    {safeFormatDate(
                                                                       transaction.date,
-                                                                    ).toLocaleDateString('en-GB')}
+                                                                    )}
                                                                   </Typography>
                                                                   <Typography
                                                                     variant="caption"

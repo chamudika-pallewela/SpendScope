@@ -1,6 +1,7 @@
 import { Box, Stack, Typography, Grid, Chip, Link, CircularProgress } from '@mui/material';
 import { Transaction, TransactionResponse } from 'config/categories';
 import { useMemo, useState, useEffect } from 'react';
+import IconifyIcon from 'components/base/IconifyIcon';
 
 interface CompanyInfo {
   name: string;
@@ -486,13 +487,119 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
               color: 'text.primary',
             }}
           >
-            B. Income Verification
+            Income Verification
           </Typography>
 
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
-            Checks Performed: Identify main income sources • Confirm regularity • Flag sudden
-            increases/irregularities • Compare average monthly income
-          </Typography>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              We analyze your income patterns to verify financial stability and identify any
+              concerns:
+            </Typography>
+            <Grid container spacing={1}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <IconifyIcon
+                    icon="material-symbols:search"
+                    sx={{ fontSize: 16, color: 'primary.main' }}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    Identify main income sources
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <IconifyIcon
+                    icon="material-symbols:schedule"
+                    sx={{ fontSize: 16, color: 'success.main' }}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    Confirm regularity
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <IconifyIcon
+                    icon="material-symbols:warning"
+                    sx={{ fontSize: 16, color: 'warning.main' }}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    Flag irregularities
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <IconifyIcon
+                    icon="material-symbols:analytics"
+                    sx={{ fontSize: 16, color: 'info.main' }}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    Compare monthly averages
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </Box>
+
+          {/* Income Summary */}
+          <Box
+            sx={{
+              p: 2,
+              backgroundColor: 'grey.50',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'grey.200',
+              mb: 2,
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+              📊 Income Summary
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={6} sm={3}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                    {sources.length}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Income Sources
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={6} sm={3}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.main' }}>
+                    {sources.filter((s) => s.flags.length === 0).length}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Regular Sources
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={6} sm={3}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'warning.main' }}>
+                    {sources.filter((s) => s.flags.length > 0).length}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    With Flags
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={6} sm={3}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'info.main' }}>
+                    {fmt(sources.reduce((sum, s) => sum + s.averageAmount, 0))}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Total Monthly
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </Box>
 
           {/* <Box sx={{ border: '1px dashed', borderColor: 'grey.200', borderRadius: 1, p: { xs: 1.5, sm: 2 }, backgroundColor: 'grey.50' }}>
             <Grid container spacing={2} alignItems="center">
@@ -704,32 +811,93 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
                             </Typography>
                           </Stack>
                         )}
-                        <Stack spacing={0.5}>
-                          <Typography variant="caption" color="text.secondary">
-                            {s.subcategory === 'Salary (PAYE)'
-                              ? 'Combined Average'
-                              : 'Average amount'}
-                          </Typography>
-                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                            {fmt(s.averageAmount)}
-                          </Typography>
-                          {s.subcategory === 'Salary (PAYE)' && (
+                        <Stack spacing={1}>
+                          <Box>
                             <Typography
                               variant="caption"
                               color="text.secondary"
-                              sx={{ fontSize: '0.7rem' }}
+                              sx={{ display: 'block', mb: 0.5 }}
                             >
-                              From {s.transactionCount} transaction(s)
+                              {s.subcategory === 'Salary (PAYE)'
+                                ? 'Monthly Average'
+                                : 'Average Amount'}
                             </Typography>
+                            <Typography
+                              variant="h6"
+                              sx={{ fontWeight: 700, color: 'success.main' }}
+                            >
+                              {fmt(s.averageAmount)}
+                            </Typography>
+                            {s.subcategory === 'Salary (PAYE)' && (
+                              <Typography variant="caption" color="text.secondary">
+                                From {s.transactionCount} payment{s.transactionCount > 1 ? 's' : ''}
+                              </Typography>
+                            )}
+                          </Box>
+
+                          {s.flags.length > 0 && (
+                            <Box
+                              sx={{
+                                p: 1,
+                                backgroundColor: 'warning.50',
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'warning.200',
+                              }}
+                            >
+                              <Stack
+                                direction="row"
+                                alignItems="center"
+                                spacing={1}
+                                sx={{ mb: 0.5 }}
+                              >
+                                <IconifyIcon
+                                  icon="material-symbols:warning"
+                                  sx={{ fontSize: 14, color: 'warning.main' }}
+                                />
+                                <Typography
+                                  variant="caption"
+                                  sx={{ fontWeight: 600, color: 'warning.main' }}
+                                >
+                                  Attention Required
+                                </Typography>
+                              </Stack>
+                              <Typography variant="caption" color="warning.dark">
+                                {s.flags.map((flag, idx) => (
+                                  <span key={idx}>
+                                    {flag}
+                                    {idx < s.flags.length - 1 && ' • '}
+                                  </span>
+                                ))}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {s.flags.length === 0 && (
+                            <Box
+                              sx={{
+                                p: 1,
+                                backgroundColor: 'success.50',
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'success.200',
+                              }}
+                            >
+                              <Stack direction="row" alignItems="center" spacing={1}>
+                                <IconifyIcon
+                                  icon="material-symbols:check-circle"
+                                  sx={{ fontSize: 14, color: 'success.main' }}
+                                />
+                                <Typography
+                                  variant="caption"
+                                  sx={{ fontWeight: 600, color: 'success.main' }}
+                                >
+                                  Regular Income Source
+                                </Typography>
+                              </Stack>
+                            </Box>
                           )}
                         </Stack>
-                        {s.flags.length > 0 && (
-                          <Box sx={{ mt: 'auto', pt: 0.5 }}>
-                            <Typography variant="caption" color="warning.main">
-                              Flags: {s.flags.join(' • ')}
-                            </Typography>
-                          </Box>
-                        )}
                       </Stack>
                     </Box>
                   </Grid>
