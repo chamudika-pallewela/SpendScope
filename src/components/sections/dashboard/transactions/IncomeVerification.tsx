@@ -1,4 +1,24 @@
-import { Box, Stack, Typography, Grid, Chip, Link, CircularProgress } from '@mui/material';
+import {
+  Box,
+  Stack,
+  Typography,
+  Grid,
+  Chip,
+  Link,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+} from '@mui/material';
 import { Transaction, TransactionResponse } from 'config/categories';
 import { useMemo, useState, useEffect } from 'react';
 import IconifyIcon from 'components/base/IconifyIcon';
@@ -187,6 +207,8 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
   const [loadingCompanies, setLoadingCompanies] = useState<Set<string>>(new Set());
   const [companyData, setCompanyData] = useState<Map<string, CompanyInfo>>(new Map());
   const [groupedSources, setGroupedSources] = useState<SourceRecord[]>([]);
+  const [selectedSource, setSelectedSource] = useState<SourceRecord | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   const sources = useMemo<SourceRecord[]>(() => {
     const incomeTx = transactionData.transactions.filter(isIncomeTransaction);
@@ -320,8 +342,86 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
       .trim();
   };
 
+  // Enhanced function to extract core company name for grouping
+  const extractCoreCompanyName = (payer: string): string => {
+    // Remove common transaction suffixes and prefixes
+    const cleaned = payer
+      .replace(/\b(FPI|DD|TFR|PAYROLL|SALARY|WAGE|PAY)\b/gi, '') // Remove payment method indicators
+      .replace(/\b\d{2}[A-Z]{3}\d{2}\b/g, '') // Remove date patterns like "08JUN25"
+      .replace(/\b\d{4}-\d{2}-\d{2}\b/g, '') // Remove date patterns like "2025-06-08"
+      .replace(/\b\d{2}\/\d{2}\/\d{4}\b/g, '') // Remove date patterns like "08/06/2025"
+      .replace(/\b\d{2}\.\d{2}\.\d{4}\b/g, '') // Remove date patterns like "08.06.2025"
+      .replace(/\b\d{8}\b/g, '') // Remove 8-digit numbers (often reference numbers)
+      .replace(/\b[A-Z]{2,}\d{4,}\b/g, '') // Remove alphanumeric codes like "ABC1234"
+      .replace(/\b\d{4,}[A-Z]{2,}\b/g, '') // Remove alphanumeric codes like "1234ABC"
+      .replace(/\b(REF|REFERENCE|ID|CODE|NO|NUMBER)\b/gi, '') // Remove reference indicators
+      .replace(/\b\d+\b/g, '') // Remove remaining numbers
+      .replace(/\s+/g, ' ') // Normalize spaces
+      .trim();
+
+    // Extract the core name (first 2-3 words typically)
+    const words = cleaned.split(' ').filter((word) => word.length > 1);
+
+    // Take first 2-3 meaningful words as core name
+    const coreWords = words.slice(0, Math.min(3, words.length));
+    return coreWords.join(' ').toLowerCase();
+  };
+
   // Helper function to check if two company names are similar
   const areSimilarCompanies = (name1: string, name2: string): boolean => {
+    // Since we're already passing core names, we can compare them directly
+    // But let's also try core name extraction for additional safety
+    const core1 = extractCoreCompanyName(name1);
+    const core2 = extractCoreCompanyName(name2);
+
+    // If core names match exactly, they're the same company
+    if (core1 === core2 && core1.length > 0) {
+      return true;
+    }
+
+    // If one core name contains the other, they're likely the same
+    if (core1.length > 0 && core2.length > 0) {
+      if (core1.includes(core2) || core2.includes(core1)) {
+        return true;
+      }
+    }
+
+    // Special handling for banks - don't group different bank branches
+    const bankNames = [
+      'hsbc',
+      'barclays',
+      'lloyds',
+      'natwest',
+      'rbs',
+      'santander',
+      'halifax',
+      'nationwide',
+      'tsb',
+      'first direct',
+      'metro bank',
+      'virgin money',
+    ];
+    const isBank1 = bankNames.some((bank) => name1.toLowerCase().includes(bank));
+    const isBank2 = bankNames.some((bank) => name2.toLowerCase().includes(bank));
+
+    // If both are banks, be more strict about grouping
+    if (isBank1 && isBank2) {
+      // Only group if they have the same bank name and similar branch indicators
+      const bank1 = bankNames.find((bank) => name1.toLowerCase().includes(bank));
+      const bank2 = bankNames.find((bank) => name2.toLowerCase().includes(bank));
+
+      if (bank1 && bank2 && bank1 === bank2) {
+        // Extract branch/account identifiers
+        const branch1 = name1.toLowerCase().replace(bank1, '').trim();
+        const branch2 = name2.toLowerCase().replace(bank2, '').trim();
+
+        // Only group if branch identifiers are very similar or empty
+        return branch1 === branch2 || branch1.length === 0 || branch2.length === 0;
+      }
+      return false;
+    }
+
+    // Fallback to original normalization for non-bank companies
     const norm1 = normalizeCompanyName(name1);
     const norm2 = normalizeCompanyName(name2);
 
@@ -380,10 +480,13 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
         // Get company info (either from cache or just fetched)
         const companyInfo = companyData.get(key) || (await fetchCompanyInfo(source.payer));
 
+        // Extract core company name for grouping
+        const coreCompanyName = extractCoreCompanyName(source.payer);
+
         // Find existing similar company or create new entry
-        let targetCompanyName = companyInfo.name;
+        let targetCompanyName = coreCompanyName;
         for (const [existingName] of companyMap) {
-          if (areSimilarCompanies(existingName, companyInfo.name)) {
+          if (areSimilarCompanies(existingName, coreCompanyName)) {
             targetCompanyName = existingName;
             break;
           }
@@ -466,6 +569,57 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
 
   const fmt = (n: number) =>
     new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(n);
+
+  const handleSourceClick = (source: SourceRecord) => {
+    setSelectedSource(source);
+    setShowDetails(true);
+  };
+
+  const getFrequencyExplanation = (source: SourceRecord): string => {
+    if (source.frequency === 'monthly') {
+      return `This income source is classified as REGULAR because:
+• Payments occur consistently every month
+• Amounts are relatively stable over time
+• Pattern indicates stable employment or recurring income
+• Suitable for reliable financial planning and loan assessments`;
+    } else {
+      return `This income source is classified as IRREGULAR because:
+• Payments do not follow a consistent monthly schedule
+• Amounts may vary significantly between payments
+• Pattern suggests freelance work, bonuses, or one-time payments
+• May require additional verification for financial assessments`;
+    }
+  };
+
+  const getFlagsExplanation = (flags: string[]): string => {
+    if (flags.length === 0) {
+      return 'No issues detected with this income source.';
+    }
+
+    return flags
+      .map((flag) => {
+        if (flag.includes('Irregular income pattern')) {
+          return '• Irregular Pattern: This income source does not follow a consistent monthly schedule, which may require additional documentation for verification.';
+        } else if (flag.includes('increased by')) {
+          return `• Income Increase: ${flag} - This significant increase may require explanation or additional documentation.`;
+        } else if (flag.includes('Multiple salary payers')) {
+          return '• Multiple Employers: Multiple salary sources detected, which is normal for part-time work or multiple jobs but may require verification of all employment relationships.';
+        } else if (flag.includes('Multiple') && flag.includes('transactions')) {
+          return '• Multiple Transactions: Multiple payments from the same source detected, which is normal for regular employment but helps verify income consistency.';
+        }
+        return `• ${flag}`;
+      })
+      .join('\n');
+  };
+
+  const getSourceTransactions = (source: SourceRecord): Transaction[] => {
+    return transactionData.transactions.filter(
+      (t) =>
+        isIncomeTransaction(t) &&
+        getPayer(t) === source.payer &&
+        t.subcategory === source.subcategory,
+    );
+  };
 
   return (
     <Box sx={{ mt: 2, height: '100%', display: 'flex' }}>
@@ -639,6 +793,7 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
                 {groupedSources.map((s, idx) => (
                   <Grid item xs={12} md={6} key={`${s.subcategory}-${s.payer}-${idx}`}>
                     <Box
+                      onClick={() => handleSourceClick(s)}
                       sx={{
                         border: '1px solid',
                         borderColor: 'grey.300',
@@ -648,9 +803,11 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
                         height: '100%',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                         transition: 'all 0.2s ease',
+                        cursor: 'pointer',
                         '&:hover': {
                           boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
                           transform: 'translateY(-2px)',
+                          borderColor: 'primary.main',
                         },
                       }}
                     >
@@ -877,22 +1034,38 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
                             <Box
                               sx={{
                                 p: 1,
-                                backgroundColor: 'success.50',
+                                backgroundColor:
+                                  s.frequency === 'monthly' ? 'success.50' : 'warning.50',
                                 borderRadius: 1,
                                 border: '1px solid',
-                                borderColor: 'success.200',
+                                borderColor:
+                                  s.frequency === 'monthly' ? 'success.200' : 'warning.200',
                               }}
                             >
                               <Stack direction="row" alignItems="center" spacing={1}>
                                 <IconifyIcon
-                                  icon="material-symbols:check-circle"
-                                  sx={{ fontSize: 14, color: 'success.main' }}
+                                  icon={
+                                    s.frequency === 'monthly'
+                                      ? 'material-symbols:check-circle'
+                                      : 'material-symbols:schedule'
+                                  }
+                                  sx={{
+                                    fontSize: 14,
+                                    color:
+                                      s.frequency === 'monthly' ? 'success.main' : 'warning.main',
+                                  }}
                                 />
                                 <Typography
                                   variant="caption"
-                                  sx={{ fontWeight: 600, color: 'success.main' }}
+                                  sx={{
+                                    fontWeight: 600,
+                                    color:
+                                      s.frequency === 'monthly' ? 'success.main' : 'warning.main',
+                                  }}
                                 >
-                                  Regular Income Source
+                                  {s.frequency === 'monthly'
+                                    ? 'Regular Income Source'
+                                    : 'Irregular Income Pattern'}
                                 </Typography>
                               </Stack>
                             </Box>
@@ -912,6 +1085,216 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
           </Stack>
         </Stack>
       </Box>
+
+      {/* Detailed Source Modal */}
+      <Dialog
+        open={showDetails}
+        onClose={() => setShowDetails(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+          },
+        }}
+      >
+        {selectedSource && (
+          <>
+            <DialogTitle sx={{ pb: 1 }}>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {selectedSource.subcategory}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedSource.payer}
+                  </Typography>
+                </Box>
+                <Chip
+                  label={selectedSource.frequency === 'monthly' ? 'Monthly' : 'Irregular'}
+                  color={selectedSource.frequency === 'monthly' ? 'success' : 'warning'}
+                  size="small"
+                />
+              </Stack>
+            </DialogTitle>
+
+            <DialogContent sx={{ pt: 2 }}>
+              <Stack spacing={3}>
+                {/* Frequency Explanation */}
+                <Box
+                  sx={{
+                    p: 2,
+                    backgroundColor:
+                      selectedSource.frequency === 'monthly' ? 'success.50' : 'warning.50',
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor:
+                      selectedSource.frequency === 'monthly' ? 'success.200' : 'warning.200',
+                  }}
+                >
+                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                    <IconifyIcon
+                      icon={
+                        selectedSource.frequency === 'monthly'
+                          ? 'material-symbols:check-circle'
+                          : 'material-symbols:schedule'
+                      }
+                      sx={{
+                        fontSize: 18,
+                        color:
+                          selectedSource.frequency === 'monthly' ? 'success.main' : 'warning.main',
+                      }}
+                    />
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
+                        color:
+                          selectedSource.frequency === 'monthly' ? 'success.main' : 'warning.main',
+                      }}
+                    >
+                      Frequency Analysis
+                    </Typography>
+                  </Stack>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                    {getFrequencyExplanation(selectedSource)}
+                  </Typography>
+                </Box>
+
+                {/* Flags Explanation */}
+                {selectedSource.flags.length > 0 && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      backgroundColor: 'warning.50',
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'warning.200',
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                      <IconifyIcon
+                        icon="material-symbols:warning"
+                        sx={{ fontSize: 18, color: 'warning.main' }}
+                      />
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 600, color: 'warning.main' }}
+                      >
+                        Issues Detected
+                      </Typography>
+                    </Stack>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                      {getFlagsExplanation(selectedSource.flags)}
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* Transaction Details */}
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+                    Transaction History ({selectedSource.transactionCount} transactions)
+                  </Typography>
+
+                  <TableContainer component={Paper} sx={{ maxHeight: 300 }}>
+                    <Table stickyHeader size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>Amount</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {getSourceTransactions(selectedSource)
+                          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                          .map((tx, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell>{new Date(tx.date).toLocaleDateString('en-GB')}</TableCell>
+                              <TableCell sx={{ fontWeight: 600, color: 'success.main' }}>
+                                {fmt(tx.money_in || 0)}
+                              </TableCell>
+                              <TableCell>{tx.description || tx.raw_description || 'N/A'}</TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+
+                {/* Summary Stats */}
+                <Box
+                  sx={{
+                    p: 2,
+                    backgroundColor: 'grey.50',
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'grey.200',
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+                    Summary Statistics
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={6} sm={3}>
+                      <Typography variant="caption" color="text.secondary">
+                        Total Amount
+                      </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.main' }}>
+                        {fmt(selectedSource.averageAmount * selectedSource.transactionCount)}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <Typography variant="caption" color="text.secondary">
+                        Average Amount
+                      </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        {fmt(selectedSource.averageAmount)}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <Typography variant="caption" color="text.secondary">
+                        Transaction Count
+                      </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        {selectedSource.transactionCount}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <Typography variant="caption" color="text.secondary">
+                        Frequency
+                      </Typography>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          fontWeight: 700,
+                          color:
+                            selectedSource.frequency === 'monthly'
+                              ? 'success.main'
+                              : 'warning.main',
+                        }}
+                      >
+                        {selectedSource.frequency === 'monthly' ? 'Regular' : 'Irregular'}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Box>
+              </Stack>
+            </DialogContent>
+
+            <DialogActions sx={{ p: 2, pt: 1 }}>
+              <Button
+                onClick={() => setShowDetails(false)}
+                variant="outlined"
+                sx={{ borderRadius: 2 }}
+              >
+                Close
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </Box>
   );
 };

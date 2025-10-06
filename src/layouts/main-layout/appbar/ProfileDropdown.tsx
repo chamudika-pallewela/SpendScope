@@ -1,25 +1,16 @@
-import {
-  Avatar,
-  Box,
-  Button,
-  Divider,
-  IconButton,
-  Link,
-  Menu,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Avatar, Box, Button, Divider, IconButton, Menu, Stack, Typography } from '@mui/material';
 import ProfileImage from 'assets/avatar.jpg';
 import IconifyIcon from 'components/base/IconifyIcon';
 import { MouseEvent, useState } from 'react';
 import { Fragment } from 'react/jsx-runtime';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import paths from '../../../routes/path';
 
 /* ------------------------Profile dropdown Data --------------------------- */
 const profileData = [
   {
-    href: '/profile',
+    href: paths.profile,
     title: 'My Profile',
     subtitle: 'Account Settings',
     icon: 'fa:user-circle-o',
@@ -40,10 +31,15 @@ const ProfileDropdown = () => {
     setAnchorEl(null);
   };
 
+  const handleProfileClick = () => {
+    navigate(paths.profile);
+    handleClose();
+  };
+
   const handleLogout = async () => {
     try {
       await logout();
-      navigate('/authentication/login');
+      navigate(paths.login);
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -106,7 +102,18 @@ const ProfileDropdown = () => {
           <Divider />
           {profileData.map((profileItem) => (
             <Box key={profileItem.title} sx={{ py: 1.5, px: 0 }}>
-              <Link href={profileItem.href}>
+              <Box
+                onClick={handleProfileClick}
+                sx={{
+                  cursor: 'pointer',
+                  '&:hover': {
+                    backgroundColor: 'grey.50',
+                    borderRadius: 1,
+                  },
+                  p: 1,
+                  borderRadius: 1,
+                }}
+              >
                 <Stack direction="row" spacing={1.5}>
                   <Stack
                     direction="row"
@@ -152,7 +159,7 @@ const ProfileDropdown = () => {
                     </Typography>
                   </div>
                 </Stack>
-              </Link>
+              </Box>
             </Box>
           ))}
           <Box mt={1.25}>

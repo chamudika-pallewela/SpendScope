@@ -2,7 +2,7 @@ import { Box, Card, CardContent, Grid, Stack, Typography } from '@mui/material';
 import IconifyIcon from 'components/base/IconifyIcon';
 import { TransactionResponse } from 'config/categories';
 import { useMemo } from 'react';
-import { analyzeRisks, formatDateRange } from 'helpers/utils';
+import { formatDateRange } from 'helpers/utils';
 
 interface TransactionSummaryProps {
   transactionData: TransactionResponse | null;
@@ -71,12 +71,6 @@ const TransactionSummary = ({ transactionData }: TransactionSummaryProps) => {
   if (!transactionData || !summaryData) {
     return null;
   }
-
-  // Compute monthly client-level risk score
-  const risk = analyzeRisks(transactionData.transactions);
-  const monthlyKeys = Array.from(risk.monthly.keys()).sort();
-  const latestMonthKey = monthlyKeys[monthlyKeys.length - 1];
-  const latestMonthly = latestMonthKey ? risk.monthly.get(latestMonthKey) : undefined;
 
   const summaryCards = [
     {
@@ -215,61 +209,6 @@ const TransactionSummary = ({ transactionData }: TransactionSummaryProps) => {
               </Grid>
             ))}
           </Grid>
-
-          {/* Client-level Monthly Risk Score */}
-          {latestMonthly && (
-            <Box
-              sx={{
-                backgroundColor:
-                  latestMonthly.severity === 'High'
-                    ? 'error.lighter'
-                    : latestMonthly.severity === 'Medium'
-                      ? 'warning.lighter'
-                      : 'success.lighter',
-                borderRadius: 2,
-                p: 2,
-                border: '1px solid',
-                borderColor:
-                  latestMonthly.severity === 'High'
-                    ? 'error.main'
-                    : latestMonthly.severity === 'Medium'
-                      ? 'warning.main'
-                      : 'success.main',
-              }}
-            >
-              <Stack spacing={1}>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <IconifyIcon
-                    icon={
-                      latestMonthly.severity === 'High'
-                        ? 'material-symbols:warning'
-                        : latestMonthly.severity === 'Medium'
-                          ? 'material-symbols:priority-high'
-                          : 'material-symbols:info'
-                    }
-                    sx={{
-                      color:
-                        latestMonthly.severity === 'High'
-                          ? 'error.main'
-                          : latestMonthly.severity === 'Medium'
-                            ? 'warning.main'
-                            : 'success.main',
-                      fontSize: 20,
-                    }}
-                  />
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                    Client Risk Score — {latestMonthly.monthKey}: {latestMonthly.score} (
-                    {latestMonthly.severity})
-                  </Typography>
-                </Stack>
-                {latestMonthly.evidence.length > 0 && (
-                  <Typography variant="caption" color="text.secondary">
-                    {latestMonthly.evidence.join(' • ')}
-                  </Typography>
-                )}
-              </Stack>
-            </Box>
-          )}
 
           {/* Date Range Information */}
           {summaryData.dateRange && (

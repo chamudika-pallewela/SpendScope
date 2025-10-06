@@ -359,7 +359,7 @@ const TransactionCategories = ({ transactionData }: TransactionCategoriesProps) 
             <>
               <List sx={{ width: '100%' }}>
                 {transactionData.transactions
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                   .map((transaction, index) => {
                     const categoryInfo =
                       CATEGORY_MAP[transaction.category as keyof typeof CATEGORY_MAP];
