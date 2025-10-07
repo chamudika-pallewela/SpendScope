@@ -11,13 +11,6 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
 } from '@mui/material';
 import { Transaction, TransactionResponse } from 'config/categories';
 import { useMemo, useState, useEffect } from 'react';
@@ -36,15 +29,15 @@ interface IncomeVerificationProps {
   transactionData: TransactionResponse;
 }
 
-interface SourceRecord {
+interface TransactionRecord {
+  transaction: Transaction;
   category: string;
   subcategory: string;
   subsubcategory: string | null;
   payer: string;
-  frequency: 'monthly' | 'irregular';
-  averageAmount: number;
-  transactionCount: number;
   flags: string[];
+  flagExplanations: string[];
+  frequency: 'monthly' | 'irregular';
   companyInfo?: {
     name: string;
     number: string;
@@ -54,11 +47,6 @@ interface SourceRecord {
     companyUrl: string;
   };
 }
-
-const monthKey = (dateStr: string) => {
-  const d = new Date(dateStr);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-};
 
 const isIncomeTransaction = (t: Transaction): boolean => {
   return (t.money_in || 0) > 0 && t.category === 'Income Categories';
@@ -204,421 +192,809 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
 };
 
 const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
-  const [loadingCompanies, setLoadingCompanies] = useState<Set<string>>(new Set());
   const [companyData, setCompanyData] = useState<Map<string, CompanyInfo>>(new Map());
-  const [groupedSources, setGroupedSources] = useState<SourceRecord[]>([]);
-  const [selectedSource, setSelectedSource] = useState<SourceRecord | null>(null);
+  const [transactionRecords, setTransactionRecords] = useState<TransactionRecord[]>([]);
+  const [selectedTransaction, setSelectedTransaction] = useState<TransactionRecord | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
-  const sources = useMemo<SourceRecord[]>(() => {
+  const incomeTransactions = useMemo<Transaction[]>(() => {
     const incomeTx = transactionData.transactions.filter(isIncomeTransaction);
     console.log('Total income transactions found:', incomeTx.length);
-    console.log(
-      'Income transactions:',
-      incomeTx.map((t) => ({
-        date: t.date,
-        payer: getPayer(t),
-        category: t.category,
-        subcategory: t.subcategory,
-        subsubcategory: t.subsubcategory,
-        amount: t.money_in,
-      })),
-    );
+    return incomeTx.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [transactionData.transactions]);
 
-    const groups = new Map<
-      string,
-      {
-        category: string;
-        subcategory: string;
-        subsubcategory: string | null;
-        payer: string;
-        txs: Transaction[];
-      }
-    >();
-    incomeTx.forEach((t) => {
-      const payer = getPayer(t);
-      const key = `${t.category}__${t.subcategory}__${t.subsubcategory || 'null'}__${payer}`;
+  // Function to analyze individual transaction and generate flags with explanations
+  const analyzeTransaction = (
+    transaction: Transaction,
+  ): { flags: string[]; explanations: string[]; frequency: 'monthly' | 'irregular' } => {
+    const flags: string[] = [];
+    const explanations: string[] = [];
+    const payer = getPayer(transaction);
+    const amount = transaction.money_in || 0;
+    const date = new Date(transaction.date);
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
-      if (!groups.has(key)) {
-        groups.set(key, {
-          category: t.category,
-          subcategory: t.subcategory,
-          subsubcategory: t.subsubcategory,
-          payer,
-          txs: [],
-        });
-      }
-      groups.get(key)!.txs.push(t);
+    // Get all transactions from the same payer
+    const samePayerTransactions = incomeTransactions.filter((t) => getPayer(t) === payer);
+
+    // Analyze frequency pattern
+    const byMonth = new Map<string, number>();
+    samePayerTransactions.forEach((t) => {
+      const tDate = new Date(t.date);
+      const tMonthKey = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}`;
+      byMonth.set(tMonthKey, (byMonth.get(tMonthKey) || 0) + (t.money_in || 0));
     });
 
-    const results: SourceRecord[] = [];
-    for (const { category, subcategory, subsubcategory, payer, txs } of groups.values()) {
-      const byMonth = new Map<string, number>();
-      txs.forEach((t) => {
-        const k = monthKey(t.date);
-        byMonth.set(k, (byMonth.get(k) || 0) + (t.money_in || 0));
-      });
-      const months = Array.from(byMonth.keys()).sort();
-      const values = months.map((m) => byMonth.get(m) || 0);
-      const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
-      let monthly = false;
-      if (months.length >= 3) {
-        monthly = true;
-        for (let i = 1; i < months.length; i++) {
-          const [y1, m1] = months[i - 1].split('-').map(Number);
-          const [y2, m2] = months[i].split('-').map(Number);
-          const gap = (y2 - y1) * 12 + (m2 - m1);
-          if (gap > 1) {
-            monthly = false;
-            break;
-          }
+    const months = Array.from(byMonth.keys()).sort();
+    let isMonthly = false;
+
+    if (months.length >= 3) {
+      isMonthly = true;
+      for (let i = 1; i < months.length; i++) {
+        const [y1, m1] = months[i - 1].split('-').map(Number);
+        const [y2, m2] = months[i].split('-').map(Number);
+        const gap = (y2 - y1) * 12 + (m2 - m1);
+        if (gap > 1) {
+          isMonthly = false;
+          break;
         }
       }
-      const flags: string[] = [];
-      for (let i = 1; i < values.length; i++) {
-        if (values[i - 1] > 0 && values[i] >= 2 * values[i - 1]) {
-          flags.push(
-            `${subcategory} increased by ${Math.round((values[i] / values[i - 1]) * 100)}% in ${months[i]}`,
+    }
+
+    // Flag 1: Frequency analysis - Monthly vs Irregular
+    if (months.length >= 2) {
+      if (isMonthly) {
+        flags.push(`Regular monthly income pattern`);
+        explanations.push(
+          `This income source shows a consistent monthly pattern with payments occurring every month. This indicates stable employment or recurring income.`,
+        );
+      } else {
+        flags.push(`Irregular income pattern`);
+        explanations.push(
+          `This income source does not follow a consistent monthly schedule. Payments are irregular, which may indicate freelance work, bonuses, or one-time payments.`,
+        );
+      }
+    }
+
+    // Flag 2: Multiple transactions from same payer in same month
+    const samePayerSameMonth = samePayerTransactions.filter((t) => {
+      const tDate = new Date(t.date);
+      const tMonthKey = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}`;
+      return tMonthKey === monthKey;
+    });
+
+    if (samePayerSameMonth.length > 1) {
+      flags.push(`Multiple payments from ${payer} in ${monthKey}`);
+      explanations.push(
+        `This payer made ${samePayerSameMonth.length} payments in ${monthKey}. This could indicate multiple salary payments, bonuses, or irregular payment patterns.`,
+      );
+    }
+
+    // Flag 3: Significant amount increase compared to previous months
+    if (samePayerTransactions.length > 1) {
+      const previousAmounts = samePayerTransactions
+        .filter((t) => new Date(t.date) < date)
+        .map((t) => t.money_in || 0);
+
+      if (previousAmounts.length > 0) {
+        const avgPreviousAmount =
+          previousAmounts.reduce((sum, amount) => sum + amount, 0) / previousAmounts.length;
+
+        if (amount >= 2 * avgPreviousAmount && avgPreviousAmount > 0) {
+          const increasePercent = Math.round(
+            ((amount - avgPreviousAmount) / avgPreviousAmount) * 100,
+          );
+          flags.push(`Significant increase: ${increasePercent}% higher than average`);
+          explanations.push(
+            `This payment of ${new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(amount)} is ${increasePercent}% higher than the average of ${new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(avgPreviousAmount)} from previous months. This could indicate a salary increase, bonus, or irregular payment.`,
           );
         }
       }
-      if (!monthly && months.length >= 2) {
-        flags.push('Irregular income pattern');
-      }
-      if (subcategory === 'Salary (PAYE)') {
-        const salaryPayers = new Set<string>();
-        transactionData.transactions.forEach((t) => {
-          if (isIncomeTransaction(t) && t.subcategory === 'Salary (PAYE)') {
-            salaryPayers.add(getPayer(t));
-          }
-        });
-        if (salaryPayers.size > 1) flags.push('Multiple salary payers detected');
-      }
-      results.push({
-        category,
-        subcategory,
-        subsubcategory,
-        payer,
-        frequency: monthly ? 'monthly' : 'irregular',
-        averageAmount: avg,
-        transactionCount: txs.length,
-        flags,
-      });
     }
 
-    const order: string[] = [
-      'Salary (PAYE)',
-      'Self-employment',
-      'Benefits',
-      'Rental',
-      'Other recurring income',
-    ];
-    results.sort((a, b) => order.indexOf(a.subcategory) - order.indexOf(b.subcategory));
+    // Flag 4: Very high amount (potential outlier)
+    const allAmounts = incomeTransactions.map((t) => t.money_in || 0);
+    const avgAllAmounts = allAmounts.reduce((sum, amount) => sum + amount, 0) / allAmounts.length;
+    if (amount >= 3 * avgAllAmounts && avgAllAmounts > 0) {
+      flags.push(`Unusually high amount`);
+      explanations.push(
+        `This payment of ${new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(amount)} is significantly higher than the average income transaction of ${new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(avgAllAmounts)}. This may require additional verification.`,
+      );
+    }
 
-    console.log('Final grouped income sources:', results.length);
-    console.log(
-      'Final income sources details:',
-      results.map((r) => ({
-        payer: r.payer,
-        subcategory: r.subcategory,
-        subsubcategory: r.subsubcategory,
-        amount: r.averageAmount,
-        count: r.transactionCount,
-        frequency: r.frequency,
-      })),
-    );
+    // Flag 5: Multiple salary payers (for salary transactions)
+    if (transaction.subcategory === 'Salary (PAYE)') {
+      const salaryPayers = new Set<string>();
+      incomeTransactions.forEach((t) => {
+        if (t.subcategory === 'Salary (PAYE)') {
+          salaryPayers.add(getPayer(t));
+        }
+      });
+      if (salaryPayers.size > 1) {
+        flags.push(`Multiple salary sources detected`);
+        explanations.push(
+          `Multiple salary payers detected: ${Array.from(salaryPayers).join(', ')}. This could indicate multiple jobs or employment changes.`,
+        );
+      }
+    }
 
-    return results;
-  }, [transactionData.transactions]);
+    // Flag 6: Weekend or unusual timing
+    const dayOfWeek = date.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      flags.push(`Weekend payment`);
+      explanations.push(
+        `This payment was made on a weekend (${date.toLocaleDateString('en-GB', { weekday: 'long' })}), which is unusual for regular salary payments.`,
+      );
+    }
 
-  // Helper function to normalize company names for better grouping
-  const normalizeCompanyName = (name: string): string => {
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, '') // Remove special characters
-      .replace(/\s+/g, ' ') // Normalize spaces
-      .trim()
-      .replace(/\b(ltd|limited|inc|incorporated|corp|corporation|llc|plc)\b/g, '') // Remove company suffixes
-      .trim();
+    // Flag 7: Very recent transaction (within last 7 days)
+    const daysSinceTransaction = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysSinceTransaction <= 7) {
+      flags.push(`Recent transaction`);
+      explanations.push(
+        `This payment was made ${daysSinceTransaction} day${daysSinceTransaction === 1 ? '' : 's'} ago, which is very recent and may not reflect regular income patterns.`,
+      );
+    }
+
+    return { flags, explanations, frequency: isMonthly ? 'monthly' : 'irregular' };
   };
 
-  // Enhanced function to extract core company name for grouping
-  const extractCoreCompanyName = (payer: string): string => {
-    // Remove common transaction suffixes and prefixes
-    const cleaned = payer
-      .replace(/\b(FPI|DD|TFR|PAYROLL|SALARY|WAGE|PAY)\b/gi, '') // Remove payment method indicators
-      .replace(/\b\d{2}[A-Z]{3}\d{2}\b/g, '') // Remove date patterns like "08JUN25"
-      .replace(/\b\d{4}-\d{2}-\d{2}\b/g, '') // Remove date patterns like "2025-06-08"
-      .replace(/\b\d{2}\/\d{2}\/\d{4}\b/g, '') // Remove date patterns like "08/06/2025"
-      .replace(/\b\d{2}\.\d{2}\.\d{4}\b/g, '') // Remove date patterns like "08.06.2025"
-      .replace(/\b\d{8}\b/g, '') // Remove 8-digit numbers (often reference numbers)
-      .replace(/\b[A-Z]{2,}\d{4,}\b/g, '') // Remove alphanumeric codes like "ABC1234"
-      .replace(/\b\d{4,}[A-Z]{2,}\b/g, '') // Remove alphanumeric codes like "1234ABC"
+  // Process individual transactions and fetch company info
+  useEffect(() => {
+    const processTransactions = async () => {
+      const records: TransactionRecord[] = [];
+      const processedPayers = new Set<string>();
+
+      for (const transaction of incomeTransactions) {
+        const payer = getPayer(transaction);
+        const key = `${transaction.subcategory}-${payer}`;
+
+        // Analyze transaction for flags
+        const { flags, explanations, frequency } = analyzeTransaction(transaction);
+
+        let companyInfo: CompanyInfo | undefined;
+
+        // Fetch company info for salary transactions
+        if (transaction.subcategory === 'Salary (PAYE)' && !processedPayers.has(payer)) {
+          if (!companyData.has(key)) {
+            const info = await fetchCompanyInfo(payer);
+            setCompanyData((prev) => new Map(prev).set(key, info));
+          }
+
+          companyInfo = companyData.get(key) || (await fetchCompanyInfo(payer));
+          processedPayers.add(payer);
+        }
+
+        records.push({
+          transaction,
+          category: transaction.category,
+          subcategory: transaction.subcategory,
+          subsubcategory: transaction.subsubcategory,
+          payer,
+          flags,
+          flagExplanations: explanations,
+          frequency,
+          companyInfo,
+        });
+      }
+
+      setTransactionRecords(records);
+    };
+
+    if (incomeTransactions.length > 0) {
+      processTransactions();
+    }
+  }, [incomeTransactions]);
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(n);
+
+  const handleTransactionClick = (record: TransactionRecord) => {
+    setSelectedTransaction(record);
+    setShowDetails(true);
+  };
+
+  const getTransactionDate = (dateStr: string): string => {
+    return new Date(dateStr).toLocaleDateString('en-GB', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  // Function to determine if payer is a person's name (first name + last name pattern)
+  const isPersonName = (payer: string): boolean => {
+    const originalPayer = payer.toUpperCase();
+
+    // First check for obvious non-person indicators
+    const nonPersonIndicators = [
+      'CLUB',
+      'LLOYDS',
+      'BANK',
+      'BANKING',
+      'FINANCIAL',
+      'CREDIT',
+      'LOAN',
+      'MORTGAGE',
+      'INTEREST',
+      'GROSS',
+      'NET',
+      'TAX',
+      'VAT',
+      'PAYMENT',
+      'TRANSFER',
+      'DEPOSIT',
+      'WITHDRAWAL',
+      'REFUND',
+      'CASHBACK',
+      'REWARD',
+      'BONUS',
+      'DIVIDEND',
+      'INVESTMENT',
+      'PENSION',
+      'INSURANCE',
+      'PREMIUM',
+      'CLAIM',
+      'SETTLEMENT',
+      'ADJUSTMENT',
+      'WAIVED',
+      'CHARGED',
+      'FEE',
+      'COMMISSION',
+      'SERVICE',
+      'MAINTENANCE',
+      'SUBSCRIPTION',
+      'MEMBERSHIP',
+      'RENTAL',
+      'LEASE',
+      'UTILITY',
+      'BILL',
+      'GOVERNMENT',
+      'HMRC',
+      'DWP',
+      'BENEFIT',
+      'ALLOWANCE',
+      'GRANT',
+      'SALARY',
+      'WAGE',
+      'PAYROLL',
+      'EMPLOYMENT',
+      'JOB',
+      'WORK',
+      'BUSINESS',
+      'ENTERPRISE',
+      'COMPANY',
+      'CORPORATION',
+      'ORGANIZATION',
+      'LTD',
+      'LIMITED',
+      'INC',
+      'INCORPORATED',
+      'CORP',
+      'LLC',
+      'PLC',
+      'GROUP',
+      'HOLDINGS',
+      'ENTERPRISES',
+      'TRADING',
+      'SERVICES',
+      'SOLUTIONS',
+      'SYSTEMS',
+      'TECHNOLOGIES',
+      'INTERNATIONAL',
+      'GLOBAL',
+      'WORLDWIDE',
+      'ACCOUNT',
+      'CARD',
+      'DEBIT',
+      'CREDIT',
+      'OVERDRAFT',
+      'LOAN',
+      'SAVINGS',
+      'CURRENT',
+      'BUSINESS',
+      'PERSONAL',
+      'JOINT',
+      // Business types and locations
+      'HOTEL',
+      'COURT',
+      'HOT',
+      'RESTAURANT',
+      'CAFE',
+      'SHOP',
+      'STORE',
+      'MARKET',
+      'CENTER',
+      'CENTRE',
+      'PARK',
+      'SQUARE',
+      'STREET',
+      'ROAD',
+      'AVENUE',
+      'LANE',
+      'BUILDING',
+      'TOWER',
+      'PLAZA',
+      'MALL',
+      'SHOPPING',
+      'RETAIL',
+      'OUTLET',
+      'OFFICE',
+      'SUITE',
+      'FLOOR',
+      'LEVEL',
+      'UNIT',
+      'BLOCK',
+      'WING',
+      'MANAGEMENT',
+      'PROPERTY',
+      'REAL',
+      'ESTATE',
+      'DEVELOPMENT',
+      'CONSTRUCTION',
+      'HOSPITAL',
+      'CLINIC',
+      'MEDICAL',
+      'HEALTH',
+      'CARE',
+      'CENTER',
+      'CENTRE',
+      'SCHOOL',
+      'COLLEGE',
+      'UNIVERSITY',
+      'ACADEMY',
+      'INSTITUTE',
+      'EDUCATION',
+      'MUSEUM',
+      'GALLERY',
+      'THEATER',
+      'THEATRE',
+      'CINEMA',
+      'STADIUM',
+      'ARENA',
+      'SPORTS',
+      'FITNESS',
+      'GYM',
+      'POOL',
+      'SWIMMING',
+      'TENNIS',
+      'GOLF',
+      'CHURCH',
+      'TEMPLE',
+      'MOSQUE',
+      'SYNAGOGUE',
+      'CATHEDRAL',
+      'CHAPEL',
+      'STATION',
+      'TERMINAL',
+      'AIRPORT',
+      'HARBOR',
+      'HARBOUR',
+      'PORT',
+      'GARDEN',
+      'PARK',
+      'ZOO',
+      'AQUARIUM',
+      'BOTANICAL',
+      'NATURE',
+      'LIBRARY',
+      'MUSEUM',
+      'ARCHIVE',
+      'RECORDS',
+      'DATA',
+      'INFORMATION',
+      'TECHNOLOGY',
+      'SOFTWARE',
+      'HARDWARE',
+      'COMPUTER',
+      'DIGITAL',
+      'ONLINE',
+      'MEDIA',
+      'NEWS',
+      'PRESS',
+      'PUBLISHING',
+      'BROADCAST',
+      'TELEVISION',
+      'RADIO',
+      'INTERNET',
+      'WEBSITE',
+      'DOMAIN',
+      'HOSTING',
+      'SERVER',
+      'SECURITY',
+      'PROTECTION',
+      'INSURANCE',
+      'LEGAL',
+      'LAW',
+      'ATTORNEY',
+      'CONSULTING',
+      'ADVISORY',
+      'PROFESSIONAL',
+      'EXPERT',
+      'SPECIALIST',
+      'RESEARCH',
+      'DEVELOPMENT',
+      'INNOVATION',
+      'CREATIVE',
+      'DESIGN',
+      'MARKETING',
+      'ADVERTISING',
+      'PROMOTION',
+      'SALES',
+      'RETAIL',
+      'DISTRIBUTION',
+      'LOGISTICS',
+      'TRANSPORT',
+      'SHIPPING',
+      'DELIVERY',
+      'MANUFACTURING',
+      'PRODUCTION',
+      'FACTORY',
+      'PLANT',
+      'FACILITY',
+      'WAREHOUSE',
+      'STORAGE',
+      'DEPOT',
+      'YARD',
+      'SITE',
+      'LOCATION',
+      'FPI',
+      'DD',
+      'TFR',
+      'PAYROLL',
+      'SALARY',
+      'WAGE',
+      'PAY',
+    ];
+
+    // Check if the payer contains any non-person indicators
+    const hasNonPersonIndicator = nonPersonIndicators.some((indicator) =>
+      originalPayer.includes(indicator),
+    );
+
+    if (hasNonPersonIndicator) {
+      return false; // It's not a person
+    }
+
+    // Remove common suffixes and clean the name for further analysis
+    const cleanName = payer
+      .replace(/\b(LTD|LIMITED|INC|INCORPORATED|CORP|CORPORATION|LLC|PLC|COMPANY|CO)\b/gi, '')
+      .replace(/\b(FPI|DD|TFR|PAYROLL|SALARY|WAGE|PAY)\b/gi, '')
+      .replace(/\b\d{2}[A-Z]{3}\d{2}\b/g, '') // Remove date patterns
+      .replace(/\b\d{4}-\d{2}-\d{2}\b/g, '') // Remove date patterns
+      .replace(/\b\d{2}\/\d{2}\/\d{4}\b/g, '') // Remove date patterns
+      .replace(/\b\d{2}\.\d{2}\.\d{4}\b/g, '') // Remove date patterns
+      .replace(/\b\d{8}\b/g, '') // Remove 8-digit numbers
+      .replace(/\b[A-Z]{2,}\d{4,}\b/g, '') // Remove alphanumeric codes
+      .replace(/\b\d{4,}[A-Z]{2,}\b/g, '') // Remove alphanumeric codes
       .replace(/\b(REF|REFERENCE|ID|CODE|NO|NUMBER)\b/gi, '') // Remove reference indicators
       .replace(/\b\d+\b/g, '') // Remove remaining numbers
       .replace(/\s+/g, ' ') // Normalize spaces
       .trim();
 
-    // Extract the core name (first 2-3 words typically)
-    const words = cleaned.split(' ').filter((word) => word.length > 1);
+    // Split into words and check if it looks like a person's name
+    const words = cleanName.split(' ').filter((word) => word.length > 1);
 
-    // Take first 2-3 meaningful words as core name
-    const coreWords = words.slice(0, Math.min(3, words.length));
-    return coreWords.join(' ').toLowerCase();
-  };
+    // Must have exactly 2-3 words to be considered a person's name
+    if (words.length < 2 || words.length > 3) {
+      return false;
+    }
 
-  // Helper function to check if two company names are similar
-  const areSimilarCompanies = (name1: string, name2: string): boolean => {
-    // Since we're already passing core names, we can compare them directly
-    // But let's also try core name extraction for additional safety
-    const core1 = extractCoreCompanyName(name1);
-    const core2 = extractCoreCompanyName(name2);
+    // Check if words contain only letters (no numbers or special characters)
+    const allWordsAreLetters = words.every((word) => /^[A-Za-z]+$/.test(word));
 
-    // If core names match exactly, they're the same company
-    if (core1 === core2 && core1.length > 0) {
+    if (!allWordsAreLetters) {
+      return false;
+    }
+
+    // Check for common first names and last names patterns
+    const commonFirstNames = [
+      'john',
+      'jane',
+      'michael',
+      'sarah',
+      'david',
+      'emma',
+      'james',
+      'lisa',
+      'robert',
+      'mary',
+      'william',
+      'jennifer',
+      'richard',
+      'linda',
+      'charles',
+      'elizabeth',
+      'thomas',
+      'barbara',
+      'christopher',
+      'susan',
+      'daniel',
+      'jessica',
+      'matthew',
+      'sarah',
+      'anthony',
+      'helen',
+      'mark',
+      'patricia',
+      'donald',
+      'debra',
+      'steven',
+      'dorothy',
+      'paul',
+      'lisa',
+      'andrew',
+      'nancy',
+      'joshua',
+      'karen',
+      'kenneth',
+      'betty',
+      'kevin',
+      'helen',
+      'brian',
+      'sandra',
+      'george',
+      'donna',
+      'timothy',
+      'carol',
+      'ronald',
+      'ruth',
+      'jason',
+      'sharon',
+      'edward',
+      'michelle',
+      'jeffrey',
+      'laura',
+      'ryan',
+      'sarah',
+      'jacob',
+      'kimberly',
+      'gary',
+      'deborah',
+      'nicholas',
+      'donna',
+      'jonathan',
+      'cynthia',
+      'stephen',
+      'rachel',
+      'jerry',
+      'carolyn',
+      'tyler',
+      'janet',
+      'sean',
+      'virginia',
+      'eric',
+      'maria',
+      'jordan',
+      'heather',
+      'adam',
+      'diane',
+      'nathan',
+      'julie',
+      'zachary',
+      'joyce',
+      'kyle',
+      'victoria',
+      'noah',
+      'judith',
+      'brandon',
+      'martha',
+      'benjamin',
+      'cheryl',
+      'samuel',
+      'frances',
+      'logan',
+      'gloria',
+      'alexander',
+      'rose',
+      'patrick',
+      'janice',
+      'jack',
+      'jean',
+      'dennis',
+      'alice',
+      'jerry',
+      'madison',
+      'walter',
+      'marilyn',
+      'alan',
+      'katherine',
+      'wayne',
+      'lois',
+      'roy',
+      'jane',
+      'ralph',
+      'lillian',
+      'eugene',
+      'phyllis',
+      'arthur',
+      'robin',
+      'louis',
+      'gloria',
+      'harry',
+      'tina',
+      'lawrence',
+      'sandra',
+      'jeremy',
+      'donna',
+      'eugene',
+      'carol',
+      'wayne',
+      'janet',
+    ];
+
+    const commonLastNames = [
+      'smith',
+      'johnson',
+      'williams',
+      'brown',
+      'jones',
+      'garcia',
+      'miller',
+      'davis',
+      'rodriguez',
+      'martinez',
+      'hernandez',
+      'lopez',
+      'gonzalez',
+      'wilson',
+      'anderson',
+      'thomas',
+      'taylor',
+      'moore',
+      'jackson',
+      'martin',
+      'lee',
+      'perez',
+      'thompson',
+      'white',
+      'harris',
+      'sanchez',
+      'clark',
+      'ramirez',
+      'lewis',
+      'robinson',
+      'walker',
+      'young',
+      'allen',
+      'king',
+      'wright',
+      'scott',
+      'torres',
+      'nguyen',
+      'hill',
+      'flores',
+      'green',
+      'adams',
+      'nelson',
+      'baker',
+      'hall',
+      'rivera',
+      'campbell',
+      'mitchell',
+      'carter',
+      'roberts',
+      'gomez',
+      'phillips',
+      'evans',
+      'turner',
+      'diaz',
+      'parker',
+      'cruz',
+      'edwards',
+      'collins',
+      'reyes',
+      'stewart',
+      'morris',
+      'morales',
+      'murphy',
+      'cook',
+      'rogers',
+      'gutierrez',
+      'ortiz',
+      'morgan',
+      'cooper',
+      'peterson',
+      'bailey',
+      'reed',
+      'kelly',
+      'howard',
+      'ramos',
+      'kim',
+      'cox',
+      'ward',
+      'richardson',
+      'watson',
+      'brooks',
+      'chavez',
+      'wood',
+      'james',
+      'bennett',
+      'gray',
+      'mendoza',
+      'ruiz',
+      'hughes',
+      'price',
+      'alvarez',
+      'castillo',
+      'sanders',
+      'patel',
+      'myers',
+      'long',
+      'ross',
+      'foster',
+      'jimenez',
+      'powell',
+      'jenkins',
+      'perry',
+      'russell',
+      'sullivan',
+      'bell',
+      'coleman',
+      'butler',
+      'henderson',
+      'barnes',
+      'gonzales',
+      'fisher',
+      'vasquez',
+      'simmons',
+      'romero',
+      'jordan',
+      'patterson',
+      'alexander',
+      'hamilton',
+      'graham',
+      'reynolds',
+      'griffin',
+      'wallace',
+      'moreno',
+      'west',
+      'cole',
+      'hayes',
+      'bryant',
+      'herrera',
+      'gibson',
+      'ellis',
+      'tran',
+      'medina',
+      'aguilar',
+      'stevens',
+      'murray',
+      'ford',
+      'castro',
+      'marshall',
+      'owens',
+      'harrison',
+      'fernandez',
+      'mcdonald',
+    ];
+
+    // Check if the first word looks like a first name and second word looks like a last name
+    const firstWord = words[0].toLowerCase();
+    const lastWord = words[1].toLowerCase();
+
+    const looksLikeFirstName =
+      commonFirstNames.includes(firstWord) ||
+      (firstWord.length >= 3 && /^[A-Za-z]+$/.test(firstWord));
+    const looksLikeLastName =
+      commonLastNames.includes(lastWord) || (lastWord.length >= 3 && /^[A-Za-z]+$/.test(lastWord));
+
+    // If it has 2 words and both look like names, it's likely a person
+    if (words.length === 2 && looksLikeFirstName && looksLikeLastName) {
       return true;
     }
 
-    // If one core name contains the other, they're likely the same
-    if (core1.length > 0 && core2.length > 0) {
-      if (core1.includes(core2) || core2.includes(core1)) {
+    // If it has 3 words, check if first two look like names
+    if (words.length === 3) {
+      const middleWord = words[1].toLowerCase();
+      const looksLikeMiddleName = /^[A-Za-z]+$/.test(middleWord) && middleWord.length >= 2;
+      if (looksLikeFirstName && looksLikeMiddleName && looksLikeLastName) {
         return true;
       }
     }
 
-    // Special handling for banks - don't group different bank branches
-    const bankNames = [
-      'hsbc',
-      'barclays',
-      'lloyds',
-      'natwest',
-      'rbs',
-      'santander',
-      'halifax',
-      'nationwide',
-      'tsb',
-      'first direct',
-      'metro bank',
-      'virgin money',
-    ];
-    const isBank1 = bankNames.some((bank) => name1.toLowerCase().includes(bank));
-    const isBank2 = bankNames.some((bank) => name2.toLowerCase().includes(bank));
-
-    // If both are banks, be more strict about grouping
-    if (isBank1 && isBank2) {
-      // Only group if they have the same bank name and similar branch indicators
-      const bank1 = bankNames.find((bank) => name1.toLowerCase().includes(bank));
-      const bank2 = bankNames.find((bank) => name2.toLowerCase().includes(bank));
-
-      if (bank1 && bank2 && bank1 === bank2) {
-        // Extract branch/account identifiers
-        const branch1 = name1.toLowerCase().replace(bank1, '').trim();
-        const branch2 = name2.toLowerCase().replace(bank2, '').trim();
-
-        // Only group if branch identifiers are very similar or empty
-        return branch1 === branch2 || branch1.length === 0 || branch2.length === 0;
-      }
-      return false;
-    }
-
-    // Fallback to original normalization for non-bank companies
-    const norm1 = normalizeCompanyName(name1);
-    const norm2 = normalizeCompanyName(name2);
-
-    // Check for exact match after normalization
-    if (norm1 === norm2) return true;
-
-    // Check if one name contains the other (for cases like "VELU" vs "T. VELU")
-    if (norm1.includes(norm2) || norm2.includes(norm1)) return true;
-
-    // Check for common words (for cases like "STANHILL COURT HOTEL" vs "STANHILL COURT HOT")
-    const words1 = norm1.split(' ').filter((w) => w.length > 2);
-    const words2 = norm2.split(' ').filter((w) => w.length > 2);
-    const commonWords = words1.filter((w) => words2.includes(w));
-
-    // If more than 50% of words match, consider them similar
-    return (
-      commonWords.length > 0 && commonWords.length / Math.max(words1.length, words2.length) > 0.5
-    );
-  };
-
-  // Fetch company information and group by actual company name
-  useEffect(() => {
-    const fetchAndGroupCompanies = async () => {
-      const salarySources = sources.filter((s) => s.subcategory === 'Salary (PAYE)');
-      console.log('All sources:', sources.length);
-      console.log('Salary sources found:', salarySources.length);
-      console.log(
-        'Salary sources:',
-        salarySources.map((s) => ({
-          payer: s.payer,
-          amount: s.averageAmount,
-          count: s.transactionCount,
-        })),
-      );
-
-      const companyMap = new Map<string, { info: CompanyInfo; sources: SourceRecord[] }>();
-
-      // Process all salary sources first
-      for (const source of salarySources) {
-        const key = `${source.subcategory}-${source.payer}`;
-
-        // Always fetch company info for each unique payer
-        if (!companyData.has(key)) {
-          setLoadingCompanies((prev) => new Set(prev).add(key));
-
-          const companyInfo = await fetchCompanyInfo(source.payer);
-          setCompanyData((prev) => new Map(prev).set(key, companyInfo));
-
-          setLoadingCompanies((prev) => {
-            const newSet = new Set(prev);
-            newSet.delete(key);
-            return newSet;
-          });
-        }
-
-        // Get company info (either from cache or just fetched)
-        const companyInfo = companyData.get(key) || (await fetchCompanyInfo(source.payer));
-
-        // Extract core company name for grouping
-        const coreCompanyName = extractCoreCompanyName(source.payer);
-
-        // Find existing similar company or create new entry
-        let targetCompanyName = coreCompanyName;
-        for (const [existingName] of companyMap) {
-          if (areSimilarCompanies(existingName, coreCompanyName)) {
-            targetCompanyName = existingName;
-            break;
-          }
-        }
-
-        if (!companyMap.has(targetCompanyName)) {
-          companyMap.set(targetCompanyName, { info: companyInfo, sources: [] });
-        }
-        companyMap.get(targetCompanyName)!.sources.push(source);
-      }
-
-      console.log('Company map:', companyMap.size, 'companies found');
-      console.log(
-        'Company map details:',
-        Array.from(companyMap.entries()).map(([name, data]) => ({
-          companyName: name,
-          sourceCount: data.sources.length,
-          sources: data.sources.map((s) => ({ payer: s.payer, amount: s.averageAmount })),
-        })),
-      );
-
-      // Create grouped sources
-      const grouped: SourceRecord[] = [];
-      for (const [companyName, { info, sources: companySources }] of companyMap) {
-        if (companySources.length > 0) {
-          // Calculate combined average
-          const totalAmount = companySources.reduce(
-            (sum, s) => sum + s.averageAmount * s.transactionCount,
-            0,
-          );
-          const totalTransactions = companySources.reduce((sum, s) => sum + s.transactionCount, 0);
-          const combinedAverage = totalTransactions > 0 ? totalAmount / totalTransactions : 0;
-
-          console.log(`Grouping ${companySources.length} sources for ${companyName}:`, {
-            totalAmount,
-            totalTransactions,
-            combinedAverage,
-            sources: companySources.map((s) => ({
-              payer: s.payer,
-              amount: s.averageAmount,
-              count: s.transactionCount,
-            })),
-          });
-
-          // Use the first source as base and update with combined data
-          const baseSource = companySources[0];
-          grouped.push({
-            ...baseSource,
-            payer: companyName, // Use actual company name
-            averageAmount: combinedAverage,
-            transactionCount: totalTransactions,
-            companyInfo: info,
-          });
-        }
-      }
-
-      // Add non-salary sources
-      const nonSalarySources = sources.filter((s) => s.subcategory !== 'Salary (PAYE)');
-      grouped.push(...nonSalarySources);
-
-      console.log('Final grouped sources:', grouped.length);
-      console.log(
-        'Final grouped salary sources:',
-        grouped
-          .filter((s) => s.subcategory === 'Salary (PAYE)')
-          .map((s) => ({
-            payer: s.payer,
-            amount: s.averageAmount,
-            count: s.transactionCount,
-          })),
-      );
-
-      setGroupedSources(grouped);
-    };
-
-    if (sources.length > 0) {
-      fetchAndGroupCompanies();
-    }
-  }, [sources]);
-
-  const fmt = (n: number) =>
-    new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(n);
-
-  const handleSourceClick = (source: SourceRecord) => {
-    setSelectedSource(source);
-    setShowDetails(true);
-  };
-
-  const getFrequencyExplanation = (source: SourceRecord): string => {
-    if (source.frequency === 'monthly') {
-      return `This income source is classified as REGULAR because:
-• Payments occur consistently every month
-• Amounts are relatively stable over time
-• Pattern indicates stable employment or recurring income
-• Suitable for reliable financial planning and loan assessments`;
-    } else {
-      return `This income source is classified as IRREGULAR because:
-• Payments do not follow a consistent monthly schedule
-• Amounts may vary significantly between payments
-• Pattern suggests freelance work, bonuses, or one-time payments
-• May require additional verification for financial assessments`;
-    }
-  };
-
-  const getFlagsExplanation = (flags: string[]): string => {
-    if (flags.length === 0) {
-      return 'No issues detected with this income source.';
-    }
-
-    return flags
-      .map((flag) => {
-        if (flag.includes('Irregular income pattern')) {
-          return '• Irregular Pattern: This income source does not follow a consistent monthly schedule, which may require additional documentation for verification.';
-        } else if (flag.includes('increased by')) {
-          return `• Income Increase: ${flag} - This significant increase may require explanation or additional documentation.`;
-        } else if (flag.includes('Multiple salary payers')) {
-          return '• Multiple Employers: Multiple salary sources detected, which is normal for part-time work or multiple jobs but may require verification of all employment relationships.';
-        } else if (flag.includes('Multiple') && flag.includes('transactions')) {
-          return '• Multiple Transactions: Multiple payments from the same source detected, which is normal for regular employment but helps verify income consistency.';
-        }
-        return `• ${flag}`;
-      })
-      .join('\n');
-  };
-
-  const getSourceTransactions = (source: SourceRecord): Transaction[] => {
-    return transactionData.transactions.filter(
-      (t) =>
-        isIncomeTransaction(t) &&
-        getPayer(t) === source.payer &&
-        t.subcategory === source.subcategory,
-    );
+    return false;
   };
 
   return (
@@ -715,40 +1091,42 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
               <Grid item xs={6} sm={3}>
                 <Box sx={{ textAlign: 'center' }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                    {sources.length}
+                    {transactionRecords.length}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Income Sources
+                    Total Transactions
                   </Typography>
                 </Box>
               </Grid>
               <Grid item xs={6} sm={3}>
                 <Box sx={{ textAlign: 'center' }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.main' }}>
-                    {sources.filter((s) => s.flags.length === 0).length}
+                    {transactionRecords.filter((t) => t.flags.length === 0).length}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Regular Sources
+                    Clean Transactions
                   </Typography>
                 </Box>
               </Grid>
               <Grid item xs={6} sm={3}>
                 <Box sx={{ textAlign: 'center' }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: 'warning.main' }}>
-                    {sources.filter((s) => s.flags.length > 0).length}
+                    {transactionRecords.filter((t) => t.flags.length > 0).length}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    With Flags
+                    Flagged Transactions
                   </Typography>
                 </Box>
               </Grid>
               <Grid item xs={6} sm={3}>
                 <Box sx={{ textAlign: 'center' }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: 'info.main' }}>
-                    {fmt(sources.reduce((sum, s) => sum + s.averageAmount, 0))}
+                    {fmt(
+                      transactionRecords.reduce((sum, t) => sum + (t.transaction.money_in || 0), 0),
+                    )}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Total Monthly
+                    Total Income
                   </Typography>
                 </Box>
               </Grid>
@@ -781,193 +1159,114 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
           </Box> */}
 
           <Stack spacing={2}>
-            {groupedSources.length === 0 && sources.length > 0 ? (
+            {transactionRecords.length === 0 && incomeTransactions.length > 0 ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress />
                 <Typography variant="body2" sx={{ ml: 2, color: 'text.secondary' }}>
-                  Processing income sources...
+                  Processing transactions...
                 </Typography>
               </Box>
             ) : (
               <Grid container spacing={2}>
-                {groupedSources.map((s, idx) => (
-                  <Grid item xs={12} md={6} key={`${s.subcategory}-${s.payer}-${idx}`}>
+                {transactionRecords.map((record, idx) => (
+                  <Grid
+                    item
+                    xs={12}
+                    md={6}
+                    key={`${record.payer}-${record.transaction.date}-${idx}`}
+                  >
                     <Box
-                      onClick={() => handleSourceClick(s)}
+                      onClick={() => handleTransactionClick(record)}
                       sx={{
                         border: '1px solid',
-                        borderColor: 'grey.300',
+                        borderColor: record.flags.length > 0 ? 'warning.300' : 'grey.300',
                         borderRadius: 2,
                         p: { xs: 2, sm: 2.5 },
                         backgroundColor: 'common.white',
                         height: '100%',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                        boxShadow:
+                          record.flags.length > 0
+                            ? '0 2px 8px rgba(255,152,0,0.1)'
+                            : '0 2px 8px rgba(0,0,0,0.08)',
                         transition: 'all 0.2s ease',
                         cursor: 'pointer',
                         '&:hover': {
-                          boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                          boxShadow:
+                            record.flags.length > 0
+                              ? '0 4px 16px rgba(255,152,0,0.15)'
+                              : '0 4px 16px rgba(0,0,0,0.12)',
                           transform: 'translateY(-2px)',
-                          borderColor: 'primary.main',
+                          borderColor: record.flags.length > 0 ? 'warning.main' : 'primary.main',
                         },
                       }}
                     >
-                      <Stack spacing={1} sx={{ height: '100%' }}>
+                      <Stack spacing={1.5} sx={{ height: '100%' }}>
                         <Stack direction="row" alignItems="center" justifyContent="space-between">
                           <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                            {s.subcategory}
+                            {record.subcategory}
                           </Typography>
-                          <Chip
-                            label={s.frequency === 'monthly' ? 'Monthly' : 'Irregular'}
-                            color={s.frequency === 'monthly' ? 'success' : 'warning'}
-                            size="small"
-                          />
-                        </Stack>
-                        <Stack spacing={0.5}>
-                          <Stack direction="row" justifyContent="space-between" alignItems="center">
-                            <Typography variant="caption" color="text.secondary">
-                              Employer / Payer
-                            </Typography>
-                            {s.subcategory === 'Salary (PAYE)' && (
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {loadingCompanies.has(`${s.subcategory}-${s.payer}`) ? (
-                                  <CircularProgress size={16} />
-                                ) : (
-                                  <Chip
-                                    label="Company Found"
-                                    color="success"
-                                    size="small"
-                                    sx={{ fontSize: '0.7rem', height: 20 }}
-                                  />
-                                )}
-                              </Box>
+                          <Stack direction="row" spacing={1}>
+                            {record.flags.length > 0 && (
+                              <Chip
+                                label={`${record.flags.length} Flag${record.flags.length > 1 ? 's' : ''}`}
+                                color="warning"
+                                size="small"
+                                icon={<IconifyIcon icon="material-symbols:warning" />}
+                              />
                             )}
+                            <Chip
+                              label={record.frequency === 'monthly' ? 'Monthly' : 'Irregular'}
+                              color={record.frequency === 'monthly' ? 'success' : 'warning'}
+                              size="small"
+                            />
+                            <Chip
+                              label={getTransactionDate(record.transaction.date)}
+                              color="info"
+                              size="small"
+                              variant="outlined"
+                            />
                           </Stack>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {s.payer}
+                        </Stack>
+
+                        <Stack spacing={0.5}>
+                          <Typography variant="caption" color="text.secondary">
+                            {isPersonName(record.payer) ? 'Payer' : 'Employer'}
                           </Typography>
-                          {s.subcategory === 'Salary (PAYE)' && (
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {record.payer}
+                          </Typography>
+
+                          {record.subcategory === 'Salary (PAYE)' && record.companyInfo && (
                             <Box
                               sx={{
-                                mt: 1.5,
-                                p: 2,
+                                mt: 1,
+                                p: 1.5,
                                 backgroundColor: 'primary.50',
-                                borderRadius: 2,
+                                borderRadius: 1.5,
                                 border: '1px solid',
                                 borderColor: 'primary.200',
-                                boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
                               }}
                             >
-                              {!s.companyInfo ? (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                  <CircularProgress size={18} color="primary" />
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{ fontWeight: 500 }}
-                                  >
-                                    Loading company information...
-                                  </Typography>
-                                </Box>
-                              ) : (
-                                <Stack spacing={1}>
-                                  <Stack
-                                    direction="row"
-                                    alignItems="center"
-                                    justifyContent="space-between"
-                                  >
-                                    <Typography
-                                      variant="caption"
-                                      color="primary.main"
-                                      sx={{ fontWeight: 600, fontSize: '0.75rem' }}
-                                    >
-                                      🏢 Company Verified
-                                    </Typography>
-                                    <Link
-                                      href={s.companyInfo.companyUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      sx={{
-                                        fontSize: '0.7rem',
-                                        textDecoration: 'none',
-                                        color: 'primary.main',
-                                        fontWeight: 500,
-                                        px: 1,
-                                        py: 0.5,
-                                        borderRadius: 1,
-                                        backgroundColor: 'primary.100',
-                                        border: '1px solid',
-                                        borderColor: 'primary.300',
-                                        transition: 'all 0.2s ease',
-                                        '&:hover': {
-                                          backgroundColor: 'primary.200',
-                                          borderColor: 'primary.400',
-                                          transform: 'translateY(-1px)',
-                                        },
-                                      }}
-                                    >
-                                      {s.companyInfo.number === 'N/A'
-                                        ? 'Search Companies House'
-                                        : 'View on Companies House'}
-                                    </Link>
-                                  </Stack>
-                                  <Typography
-                                    variant="body2"
-                                    sx={{
-                                      fontWeight: 700,
-                                      color: 'text.primary',
-                                      fontSize: '0.9rem',
-                                    }}
-                                  >
-                                    {s.companyInfo.name}
-                                  </Typography>
-                                  <Stack direction="row" spacing={2}>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                      sx={{ fontWeight: 500 }}
-                                    >
-                                      #{s.companyInfo.number}
-                                    </Typography>
-                                    <Typography
-                                      variant="caption"
-                                      color="success.main"
-                                      sx={{ fontWeight: 600 }}
-                                    >
-                                      {s.companyInfo.status}
-                                    </Typography>
-                                  </Stack>
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{ display: 'block', lineHeight: 1.4 }}
-                                  >
-                                    📍 {s.companyInfo.address}
-                                  </Typography>
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{ display: 'block' }}
-                                  >
-                                    📅 Incorporated: {s.companyInfo.incorporated}
-                                  </Typography>
-                                </Stack>
-                              )}
+                              <Stack spacing={0.5}>
+                                <Typography
+                                  variant="caption"
+                                  color="primary.main"
+                                  sx={{ fontWeight: 600, fontSize: '0.7rem' }}
+                                >
+                                  🏢 {record.companyInfo.name}
+                                </Typography>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ fontSize: '0.7rem' }}
+                                >
+                                  #{record.companyInfo.number} • {record.companyInfo.status}
+                                </Typography>
+                              </Stack>
                             </Box>
                           )}
                         </Stack>
-                        {s.subsubcategory && (
-                          <Stack spacing={0.5}>
-                            <Typography variant="caption" color="text.secondary">
-                              Type
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              sx={{ fontWeight: 600, color: 'text.secondary' }}
-                            >
-                              {s.subsubcategory}
-                            </Typography>
-                          </Stack>
-                        )}
+
                         <Stack spacing={1}>
                           <Box>
                             <Typography
@@ -975,97 +1274,82 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
                               color="text.secondary"
                               sx={{ display: 'block', mb: 0.5 }}
                             >
-                              {s.subcategory === 'Salary (PAYE)'
-                                ? 'Monthly Average'
-                                : 'Average Amount'}
+                              Amount
                             </Typography>
                             <Typography
                               variant="h6"
                               sx={{ fontWeight: 700, color: 'success.main' }}
                             >
-                              {fmt(s.averageAmount)}
+                              {fmt(record.transaction.money_in || 0)}
                             </Typography>
-                            {s.subcategory === 'Salary (PAYE)' && (
-                              <Typography variant="caption" color="text.secondary">
-                                From {s.transactionCount} payment{s.transactionCount > 1 ? 's' : ''}
-                              </Typography>
-                            )}
                           </Box>
 
-                          {s.flags.length > 0 && (
+                          {record.flags.length > 0 && (
                             <Box
                               sx={{
-                                p: 1,
+                                p: 1.5,
                                 backgroundColor: 'warning.50',
-                                borderRadius: 1,
+                                borderRadius: 1.5,
                                 border: '1px solid',
                                 borderColor: 'warning.200',
                               }}
                             >
-                              <Stack
-                                direction="row"
-                                alignItems="center"
-                                spacing={1}
-                                sx={{ mb: 0.5 }}
-                              >
+                              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                                 <IconifyIcon
                                   icon="material-symbols:warning"
-                                  sx={{ fontSize: 14, color: 'warning.main' }}
+                                  sx={{ fontSize: 16, color: 'warning.main' }}
                                 />
                                 <Typography
                                   variant="caption"
                                   sx={{ fontWeight: 600, color: 'warning.main' }}
                                 >
-                                  Attention Required
+                                  Flags Detected
                                 </Typography>
                               </Stack>
-                              <Typography variant="caption" color="warning.dark">
-                                {s.flags.map((flag, idx) => (
-                                  <span key={idx}>
-                                    {flag}
-                                    {idx < s.flags.length - 1 && ' • '}
-                                  </span>
+                              <Stack spacing={0.5}>
+                                {record.flags.slice(0, 2).map((flag, flagIdx) => (
+                                  <Typography
+                                    key={flagIdx}
+                                    variant="caption"
+                                    color="warning.dark"
+                                    sx={{ display: 'block', fontSize: '0.75rem' }}
+                                  >
+                                    • {flag}
+                                  </Typography>
                                 ))}
-                              </Typography>
+                                {record.flags.length > 2 && (
+                                  <Typography
+                                    variant="caption"
+                                    color="warning.dark"
+                                    sx={{ fontSize: '0.75rem', fontStyle: 'italic' }}
+                                  >
+                                    +{record.flags.length - 2} more...
+                                  </Typography>
+                                )}
+                              </Stack>
                             </Box>
                           )}
 
-                          {s.flags.length === 0 && (
+                          {record.flags.length === 0 && (
                             <Box
                               sx={{
                                 p: 1,
-                                backgroundColor:
-                                  s.frequency === 'monthly' ? 'success.50' : 'warning.50',
+                                backgroundColor: 'success.50',
                                 borderRadius: 1,
                                 border: '1px solid',
-                                borderColor:
-                                  s.frequency === 'monthly' ? 'success.200' : 'warning.200',
+                                borderColor: 'success.200',
                               }}
                             >
                               <Stack direction="row" alignItems="center" spacing={1}>
                                 <IconifyIcon
-                                  icon={
-                                    s.frequency === 'monthly'
-                                      ? 'material-symbols:check-circle'
-                                      : 'material-symbols:schedule'
-                                  }
-                                  sx={{
-                                    fontSize: 14,
-                                    color:
-                                      s.frequency === 'monthly' ? 'success.main' : 'warning.main',
-                                  }}
+                                  icon="material-symbols:check-circle"
+                                  sx={{ fontSize: 14, color: 'success.main' }}
                                 />
                                 <Typography
                                   variant="caption"
-                                  sx={{
-                                    fontWeight: 600,
-                                    color:
-                                      s.frequency === 'monthly' ? 'success.main' : 'warning.main',
-                                  }}
+                                  sx={{ fontWeight: 600, color: 'success.main' }}
                                 >
-                                  {s.frequency === 'monthly'
-                                    ? 'Regular Income Source'
-                                    : 'Irregular Income Pattern'}
+                                  No Issues Detected
                                 </Typography>
                               </Stack>
                             </Box>
@@ -1077,16 +1361,16 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
                 ))}
               </Grid>
             )}
-            {sources.length === 0 && (
+            {incomeTransactions.length === 0 && (
               <Typography variant="body2" color="text.secondary">
-                No income sources detected.
+                No income transactions detected.
               </Typography>
             )}
           </Stack>
         </Stack>
       </Box>
 
-      {/* Detailed Source Modal */}
+      {/* Detailed Transaction Modal */}
       <Dialog
         open={showDetails}
         onClose={() => setShowDetails(false)}
@@ -1099,131 +1383,46 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
           },
         }}
       >
-        {selectedSource && (
+        {selectedTransaction && (
           <>
             <DialogTitle sx={{ pb: 1 }}>
               <Stack direction="row" alignItems="center" spacing={2}>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    {selectedSource.subcategory}
+                    {selectedTransaction.subcategory}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {selectedSource.payer}
+                    {isPersonName(selectedTransaction.payer) ? 'Payer' : 'Employer'}:{' '}
+                    {selectedTransaction.payer}
                   </Typography>
                 </Box>
-                <Chip
-                  label={selectedSource.frequency === 'monthly' ? 'Monthly' : 'Irregular'}
-                  color={selectedSource.frequency === 'monthly' ? 'success' : 'warning'}
-                  size="small"
-                />
+                <Stack direction="row" spacing={1}>
+                  {selectedTransaction.flags.length > 0 && (
+                    <Chip
+                      label={`${selectedTransaction.flags.length} Flag${selectedTransaction.flags.length > 1 ? 's' : ''}`}
+                      color="warning"
+                      size="small"
+                      icon={<IconifyIcon icon="material-symbols:warning" />}
+                    />
+                  )}
+                  <Chip
+                    label={selectedTransaction.frequency === 'monthly' ? 'Monthly' : 'Irregular'}
+                    color={selectedTransaction.frequency === 'monthly' ? 'success' : 'warning'}
+                    size="small"
+                  />
+                  <Chip
+                    label={getTransactionDate(selectedTransaction.transaction.date)}
+                    color="info"
+                    size="small"
+                    variant="outlined"
+                  />
+                </Stack>
               </Stack>
             </DialogTitle>
 
             <DialogContent sx={{ pt: 2 }}>
               <Stack spacing={3}>
-                {/* Frequency Explanation */}
-                <Box
-                  sx={{
-                    p: 2,
-                    backgroundColor:
-                      selectedSource.frequency === 'monthly' ? 'success.50' : 'warning.50',
-                    borderRadius: 2,
-                    border: '1px solid',
-                    borderColor:
-                      selectedSource.frequency === 'monthly' ? 'success.200' : 'warning.200',
-                  }}
-                >
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                    <IconifyIcon
-                      icon={
-                        selectedSource.frequency === 'monthly'
-                          ? 'material-symbols:check-circle'
-                          : 'material-symbols:schedule'
-                      }
-                      sx={{
-                        fontSize: 18,
-                        color:
-                          selectedSource.frequency === 'monthly' ? 'success.main' : 'warning.main',
-                      }}
-                    />
-                    <Typography
-                      variant="subtitle2"
-                      sx={{
-                        fontWeight: 600,
-                        color:
-                          selectedSource.frequency === 'monthly' ? 'success.main' : 'warning.main',
-                      }}
-                    >
-                      Frequency Analysis
-                    </Typography>
-                  </Stack>
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                    {getFrequencyExplanation(selectedSource)}
-                  </Typography>
-                </Box>
-
-                {/* Flags Explanation */}
-                {selectedSource.flags.length > 0 && (
-                  <Box
-                    sx={{
-                      p: 2,
-                      backgroundColor: 'warning.50',
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: 'warning.200',
-                    }}
-                  >
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <IconifyIcon
-                        icon="material-symbols:warning"
-                        sx={{ fontSize: 18, color: 'warning.main' }}
-                      />
-                      <Typography
-                        variant="subtitle2"
-                        sx={{ fontWeight: 600, color: 'warning.main' }}
-                      >
-                        Issues Detected
-                      </Typography>
-                    </Stack>
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                      {getFlagsExplanation(selectedSource.flags)}
-                    </Typography>
-                  </Box>
-                )}
-
                 {/* Transaction Details */}
-                <Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-                    Transaction History ({selectedSource.transactionCount} transactions)
-                  </Typography>
-
-                  <TableContainer component={Paper} sx={{ maxHeight: 300 }}>
-                    <Table stickyHeader size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>Amount</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {getSourceTransactions(selectedSource)
-                          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                          .map((tx, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell>{new Date(tx.date).toLocaleDateString('en-GB')}</TableCell>
-                              <TableCell sx={{ fontWeight: 600, color: 'success.main' }}>
-                                {fmt(tx.money_in || 0)}
-                              </TableCell>
-                              <TableCell>{tx.description || tx.raw_description || 'N/A'}</TableCell>
-                            </TableRow>
-                          ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Box>
-
-                {/* Summary Stats */}
                 <Box
                   sx={{
                     p: 2,
@@ -1234,51 +1433,250 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
                   }}
                 >
                   <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-                    Summary Statistics
+                    Transaction Details
                   </Typography>
                   <Grid container spacing={2}>
                     <Grid item xs={6} sm={3}>
                       <Typography variant="caption" color="text.secondary">
-                        Total Amount
+                        Amount
                       </Typography>
                       <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.main' }}>
-                        {fmt(selectedSource.averageAmount * selectedSource.transactionCount)}
+                        {fmt(selectedTransaction.transaction.money_in || 0)}
                       </Typography>
                     </Grid>
                     <Grid item xs={6} sm={3}>
                       <Typography variant="caption" color="text.secondary">
-                        Average Amount
+                        Date
                       </Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                        {fmt(selectedSource.averageAmount)}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <Typography variant="caption" color="text.secondary">
-                        Transaction Count
-                      </Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                        {selectedSource.transactionCount}
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {new Date(selectedTransaction.transaction.date).toLocaleDateString('en-GB')}
                       </Typography>
                     </Grid>
                     <Grid item xs={6} sm={3}>
                       <Typography variant="caption" color="text.secondary">
-                        Frequency
+                        Category
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {selectedTransaction.subcategory}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <Typography variant="caption" color="text.secondary">
+                        Status
                       </Typography>
                       <Typography
-                        variant="h6"
+                        variant="body2"
                         sx={{
-                          fontWeight: 700,
+                          fontWeight: 600,
                           color:
-                            selectedSource.frequency === 'monthly'
+                            selectedTransaction.flags.length === 0
                               ? 'success.main'
                               : 'warning.main',
                         }}
                       >
-                        {selectedSource.frequency === 'monthly' ? 'Regular' : 'Irregular'}
+                        {selectedTransaction.flags.length === 0 ? 'Clean' : 'Flagged'}
                       </Typography>
                     </Grid>
                   </Grid>
+                </Box>
+
+                {/* Frequency Analysis */}
+                <Box
+                  sx={{
+                    p: 2,
+                    backgroundColor:
+                      selectedTransaction.frequency === 'monthly' ? 'success.50' : 'warning.50',
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor:
+                      selectedTransaction.frequency === 'monthly' ? 'success.200' : 'warning.200',
+                  }}
+                >
+                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                    <IconifyIcon
+                      icon={
+                        selectedTransaction.frequency === 'monthly'
+                          ? 'material-symbols:check-circle'
+                          : 'material-symbols:schedule'
+                      }
+                      sx={{
+                        fontSize: 18,
+                        color:
+                          selectedTransaction.frequency === 'monthly'
+                            ? 'success.main'
+                            : 'warning.main',
+                      }}
+                    />
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
+                        color:
+                          selectedTransaction.frequency === 'monthly'
+                            ? 'success.main'
+                            : 'warning.main',
+                      }}
+                    >
+                      Frequency Analysis
+                    </Typography>
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedTransaction.frequency === 'monthly'
+                      ? 'This income source shows a consistent monthly pattern with payments occurring every month. This indicates stable employment or recurring income.'
+                      : 'This income source does not follow a consistent monthly schedule. Payments are irregular, which may indicate freelance work, bonuses, or one-time payments.'}
+                  </Typography>
+                </Box>
+
+                {/* Company Information */}
+                {selectedTransaction.subcategory === 'Salary (PAYE)' &&
+                  selectedTransaction.companyInfo && (
+                    <Box
+                      sx={{
+                        p: 2,
+                        backgroundColor: 'primary.50',
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: 'primary.200',
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                        <IconifyIcon
+                          icon="material-symbols:business"
+                          sx={{ fontSize: 18, color: 'primary.main' }}
+                        />
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ fontWeight: 600, color: 'primary.main' }}
+                        >
+                          Company Information
+                        </Typography>
+                      </Stack>
+                      <Stack spacing={1}>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                          {selectedTransaction.companyInfo.name}
+                        </Typography>
+                        <Stack direction="row" spacing={2}>
+                          <Typography variant="caption" color="text.secondary">
+                            #{selectedTransaction.companyInfo.number}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color="success.main"
+                            sx={{ fontWeight: 600 }}
+                          >
+                            {selectedTransaction.companyInfo.status}
+                          </Typography>
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary">
+                          📍 {selectedTransaction.companyInfo.address}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          📅 Incorporated: {selectedTransaction.companyInfo.incorporated}
+                        </Typography>
+                        <Link
+                          href={selectedTransaction.companyInfo.companyUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{
+                            fontSize: '0.8rem',
+                            textDecoration: 'none',
+                            color: 'primary.main',
+                            fontWeight: 500,
+                            display: 'inline-block',
+                            mt: 1,
+                          }}
+                        >
+                          View on Companies House →
+                        </Link>
+                      </Stack>
+                    </Box>
+                  )}
+
+                {/* Flags Explanation */}
+                {selectedTransaction.flags.length > 0 && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      backgroundColor: 'warning.50',
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'warning.200',
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                      <IconifyIcon
+                        icon="material-symbols:warning"
+                        sx={{ fontSize: 18, color: 'warning.main' }}
+                      />
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 600, color: 'warning.main' }}
+                      >
+                        Why This Transaction Was Flagged
+                      </Typography>
+                    </Stack>
+                    <Stack spacing={1.5}>
+                      {selectedTransaction.flags.map((flag, idx) => (
+                        <Box key={idx}>
+                          <Typography
+                            variant="body2"
+                            sx={{ fontWeight: 600, color: 'warning.dark', mb: 0.5 }}
+                          >
+                            {flag}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ fontSize: '0.9rem' }}
+                          >
+                            {selectedTransaction.flagExplanations[idx]}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                {/* No Flags Message */}
+                {selectedTransaction.flags.length === 0 && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      backgroundColor: 'success.50',
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'success.200',
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                      <IconifyIcon
+                        icon="material-symbols:check-circle"
+                        sx={{ fontSize: 18, color: 'success.main' }}
+                      />
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 600, color: 'success.main' }}
+                      >
+                        No Issues Detected
+                      </Typography>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      This transaction appears to be normal with no irregularities detected. It
+                      follows expected patterns for this type of income.
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* Transaction Description */}
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                    Transaction Description
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedTransaction.transaction.description ||
+                      selectedTransaction.transaction.raw_description ||
+                      'No description available'}
+                  </Typography>
                 </Box>
               </Stack>
             </DialogContent>

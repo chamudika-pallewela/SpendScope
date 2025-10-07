@@ -32,13 +32,81 @@ interface AffordabilityReportProps {
   defaultMortgageEstimate?: number; // monthly, GBP
 }
 
+interface MonthlyAnalysisData {
+  monthKey: string;
+  income: number;
+  expenses: number;
+  essentialExpenses: number;
+  discretionaryExpenses: number;
+  surplus: number;
+  dti: number;
+  essentialRatio: number;
+  discretionaryRatio: number;
+  verdict: 'Green' | 'Amber' | 'Red';
+  transactionCount: number;
+}
+
 const AffordabilityReport = ({
   transactionData,
   defaultMortgageEstimate = 1200,
 }: AffordabilityReportProps) => {
   const [mortgageEstimate, setMortgageEstimate] = useState<number>(defaultMortgageEstimate);
   const [estimateInput, setEstimateInput] = useState<string>(String(defaultMortgageEstimate));
+  const [tempMortgageEstimate, setTempMortgageEstimate] = useState<number>(defaultMortgageEstimate);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
+  const [monthlyExplanationModalOpen, setMonthlyExplanationModalOpen] = useState(false);
+  const [selectedMonthData, setSelectedMonthData] = useState<MonthlyAnalysisData | null>(null);
+  const [forceUpdate, setForceUpdate] = useState(0);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [analysisKey, setAnalysisKey] = useState(0);
+
+  const handleMonthClick = (monthData: MonthlyAnalysisData) => {
+    setSelectedMonthData(monthData);
+    setMonthlyExplanationModalOpen(true);
+  };
+
+  const handleUpdateAnalysis = async () => {
+    // Use tempMortgageEstimate if estimateInput is empty, otherwise use estimateInput
+    const inputValue = estimateInput.trim() || tempMortgageEstimate.toString();
+    const v = Number(inputValue);
+    const newValue = isNaN(v) ? tempMortgageEstimate || defaultMortgageEstimate : v;
+
+    console.log('Updating analysis with mortgage estimate:', newValue);
+    console.log('Input values:', { estimateInput, tempMortgageEstimate, inputValue, newValue });
+
+    setIsUpdating(true);
+
+    // Force multiple state updates to trigger re-render
+    setMortgageEstimate(newValue);
+    setTempMortgageEstimate(newValue);
+    setForceUpdate((prev) => prev + 1);
+    setAnalysisKey((prev) => prev + 1);
+
+    // Wait for state updates to process
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    // Force another update cycle
+    setForceUpdate((prev) => prev + 1);
+    setAnalysisKey((prev) => prev + 1);
+
+    // Final delay before clearing loading state
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    setIsUpdating(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEstimateInput(e.target.value);
+    const v = Number(e.target.value || 0);
+    const newValue = isNaN(v) ? 0 : v;
+    setTempMortgageEstimate(newValue);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleUpdateAnalysis();
+    }
+  };
 
   // Early return if no transaction data
   if (!transactionData || !transactionData.transactions) {
@@ -52,6 +120,7 @@ const AffordabilityReport = ({
   }
 
   const analysis = useMemo(() => {
+    console.log('Analysis useMemo triggered with mortgageEstimate:', mortgageEstimate);
     try {
       if (!transactionData?.transactions || transactionData.transactions.length === 0) {
         return null;
@@ -198,6 +267,20 @@ const AffordabilityReport = ({
 
         // Monthly verdict
         let monthVerdict: 'Green' | 'Amber' | 'Red' = 'Red';
+        console.log(`Monthly verdict for ${key}:`, {
+          monthSurplus,
+          mortgageEstimate,
+          monthDti,
+          condition1: monthSurplus >= mortgageEstimate && monthDti < 0.35,
+          condition2: monthSurplus >= 0.8 * mortgageEstimate && monthDti < 0.5,
+          condition3: monthSurplus < 0,
+          condition4: monthDti > 0.5,
+          calculation1: `${monthSurplus} >= ${mortgageEstimate} && ${monthDti} < 0.35`,
+          calculation2: `${monthSurplus} >= ${0.8 * mortgageEstimate} && ${monthDti} < 0.5`,
+          result1: monthSurplus >= mortgageEstimate && monthDti < 0.35,
+          result2: monthSurplus >= 0.8 * mortgageEstimate && monthDti < 0.5,
+        });
+
         if (monthSurplus >= mortgageEstimate && monthDti < 0.35) {
           monthVerdict = 'Green';
         } else if (monthSurplus >= 0.8 * mortgageEstimate && monthDti < 0.5) {
@@ -209,6 +292,8 @@ const AffordabilityReport = ({
         } else {
           monthVerdict = 'Amber';
         }
+
+        console.log(`Final verdict for ${key}: ${monthVerdict}`);
 
         return {
           monthKey: key,
@@ -254,7 +339,7 @@ const AffordabilityReport = ({
       console.error('Error in affordability analysis:', error);
       return null;
     }
-  }, [transactionData.transactions, mortgageEstimate]);
+  }, [transactionData.transactions, mortgageEstimate, forceUpdate, isUpdating, analysisKey]);
 
   const fmt = (n: number) =>
     new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(n);
@@ -328,20 +413,33 @@ const AffordabilityReport = ({
                 type="number"
                 label="Estimated Monthly Repayment"
                 value={estimateInput}
-                onChange={(e) => {
-                  setEstimateInput(e.target.value);
-                  const v = Number(e.target.value || 0);
-                  const newValue = isNaN(v) ? 0 : v;
-                  console.log('Input changed:', { input: e.target.value, parsed: v, newValue });
-                  setMortgageEstimate(newValue);
-                }}
+                onChange={handleInputChange}
+                onKeyPress={handleKeyPress}
                 size="medium"
                 inputProps={{ min: 0, step: 50 }}
-                helperText="Enter your expected monthly mortgage, rent, or loan payment"
+                helperText="Enter your expected monthly mortgage, rent, or loan payment (press Enter or click Update)"
                 InputProps={{
                   startAdornment: <InputAdornment position="start">£</InputAdornment>,
                 }}
               />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Button
+                variant="contained"
+                onClick={handleUpdateAnalysis}
+                disabled={isUpdating}
+                startIcon={
+                  isUpdating ? (
+                    <IconifyIcon icon="material-symbols:hourglass-empty" />
+                  ) : (
+                    <IconifyIcon icon="material-symbols:refresh" />
+                  )
+                }
+                sx={{ mb: 2 }}
+                fullWidth
+              >
+                {isUpdating ? 'Updating...' : 'Update Analysis'}
+              </Button>
             </Grid>
             <Grid item xs={12} md={3}>
               <Typography variant="body2" color="text.secondary">
@@ -351,8 +449,17 @@ const AffordabilityReport = ({
                 </strong>
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Testing: <strong>£{mortgageEstimate.toLocaleString()}/month</strong>
+                Current: <strong>£{mortgageEstimate.toLocaleString()}/month</strong>
               </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                Debug: mortgageEstimate = {mortgageEstimate}, forceUpdate = {forceUpdate},
+                analysisKey = {analysisKey}
+              </Typography>
+              {tempMortgageEstimate !== mortgageEstimate && (
+                <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+                  Pending: £{tempMortgageEstimate.toLocaleString()}/month
+                </Typography>
+              )}
             </Grid>
           </Grid>
         </CardContent>
@@ -387,7 +494,41 @@ const AffordabilityReport = ({
       </Alert>
 
       {/* Monthly Analysis Section */}
-      <Card sx={{ mb: 3 }}>
+      <Card sx={{ mb: 3, position: 'relative' }}>
+        {isUpdating && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1,
+            }}
+          >
+            <Stack alignItems="center" spacing={2}>
+              <IconifyIcon
+                icon="material-symbols:hourglass-empty"
+                sx={{
+                  fontSize: 32,
+                  color: 'primary.main',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
+                  },
+                  animation: 'spin 1s linear infinite',
+                }}
+              />
+              <Typography variant="h6" color="primary.main">
+                Updating Analysis...
+              </Typography>
+            </Stack>
+          </Box>
+        )}
         <CardContent>
           <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
             <IconifyIcon
@@ -399,7 +540,15 @@ const AffordabilityReport = ({
             </Typography>
           </Stack>
 
-          <Grid container spacing={2}>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+            Debug: Using mortgage estimate = £{mortgageEstimate} for verdict calculations
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+            Input Debug: estimateInput="{estimateInput}", tempMortgageEstimate=
+            {tempMortgageEstimate}
+          </Typography>
+
+          <Grid container spacing={2} key={`monthly-analysis-${analysisKey}`}>
             {analysis.monthlyAnalysis.map((month) => {
               // Dynamic sizing for balanced grid layout
               const getGridSize = () => {
@@ -420,10 +569,12 @@ const AffordabilityReport = ({
               };
 
               return (
-                <Grid item {...getGridSize()} key={month.monthKey}>
+                <Grid item {...getGridSize()} key={`${month.monthKey}-${analysisKey}`}>
                   <Card
+                    onClick={() => handleMonthClick(month)}
                     sx={{
                       height: '100%',
+                      cursor: 'pointer',
                       border: '2px solid',
                       borderColor:
                         month.verdict === 'Green'
@@ -431,6 +582,11 @@ const AffordabilityReport = ({
                           : month.verdict === 'Amber'
                             ? 'warning.main'
                             : 'error.main',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: 3,
+                        transition: 'all 0.2s ease-in-out',
+                      },
                     }}
                   >
                     <CardContent sx={{ p: 2 }}>
@@ -992,11 +1148,14 @@ const AffordabilityReport = ({
       {/* Help Modal */}
       <Dialog open={helpModalOpen} onClose={() => setHelpModalOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle
-          sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontWeight: 600,
+          }}
         >
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            How Affordability Analysis is Calculated
-          </Typography>
+          How Affordability Analysis is Calculated
           <IconButton onClick={() => setHelpModalOpen(false)} size="small">
             <IconifyIcon icon="material-symbols:close" />
           </IconButton>
@@ -1178,7 +1337,9 @@ const AffordabilityReport = ({
                 💰 Monthly Repayment Calculator
               </Typography>
               <Typography variant="body1" sx={{ mb: 2 }}>
-                The "Estimated Monthly Repayment" field lets you test different loan commitments:
+                The "Estimated Monthly Repayment" field lets you test different loan commitments.
+                Use the "Update Analysis" button or press Enter to recalculate the affordability
+                analysis:
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
@@ -1213,7 +1374,7 @@ const AffordabilityReport = ({
                       • Type any amount (e.g., £1,200)
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 1 }}>
-                      • Analysis updates instantly
+                      • Press Enter or click "Update Analysis"
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 1 }}>
                       • See if you can afford it
@@ -1269,6 +1430,411 @@ const AffordabilityReport = ({
         <DialogActions sx={{ p: 2 }}>
           <Button
             onClick={() => setHelpModalOpen(false)}
+            variant="contained"
+            startIcon={<IconifyIcon icon="material-symbols:check" />}
+          >
+            Got it!
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Monthly Explanation Modal */}
+      <Dialog
+        open={monthlyExplanationModalOpen}
+        onClose={() => setMonthlyExplanationModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontWeight: 600,
+          }}
+        >
+          Monthly Analysis: {selectedMonthData?.monthKey}
+          <IconButton onClick={() => setMonthlyExplanationModalOpen(false)} size="small">
+            <IconifyIcon icon="material-symbols:close" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {selectedMonthData && (
+            <Stack spacing={3}>
+              {/* Month Overview */}
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
+                  📊 Month Overview
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <Card sx={{ p: 2, backgroundColor: 'success.50' }}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 600, color: 'success.main', mb: 1 }}
+                      >
+                        💰 Income
+                      </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.main' }}>
+                        {fmt(selectedMonthData.income)}
+                      </Typography>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Card sx={{ p: 2, backgroundColor: 'error.50' }}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 600, color: 'error.main', mb: 1 }}
+                      >
+                        💸 Expenses
+                      </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 700, color: 'error.main' }}>
+                        {fmt(selectedMonthData.expenses)}
+                      </Typography>
+                    </Card>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              {/* Verdict Explanation */}
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
+                  🎯 Why {selectedMonthData.verdict}?
+                </Typography>
+
+                {selectedMonthData.verdict === 'Green' && (
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                      🟢 Excellent Financial Position
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      This month shows strong financial health because:
+                    </Typography>
+                    <List dense>
+                      <ListItem sx={{ py: 0 }}>
+                        <ListItemIcon>
+                          <IconifyIcon
+                            icon="material-symbols:check-circle"
+                            sx={{ color: 'success.main' }}
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={`Surplus: ${fmt(selectedMonthData.surplus)}`}
+                          secondary={`This is ${selectedMonthData.surplus >= mortgageEstimate ? 'greater than or equal to' : 'close to'} your estimated monthly repayment of ${fmt(mortgageEstimate)}`}
+                        />
+                      </ListItem>
+                      <ListItem sx={{ py: 0 }}>
+                        <ListItemIcon>
+                          <IconifyIcon
+                            icon="material-symbols:percent"
+                            sx={{ color: 'success.main' }}
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={`Debt-to-Income: ${(selectedMonthData.dti * 100).toFixed(1)}%`}
+                          secondary="This is below the 35% threshold, indicating healthy debt levels"
+                        />
+                      </ListItem>
+                    </List>
+                  </Alert>
+                )}
+
+                {selectedMonthData.verdict === 'Amber' && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                      🟡 Good but Needs Attention
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      This month shows good financial health but with some concerns:
+                    </Typography>
+                    <List dense>
+                      <ListItem sx={{ py: 0 }}>
+                        <ListItemIcon>
+                          <IconifyIcon
+                            icon={
+                              selectedMonthData.surplus >= 0.8 * mortgageEstimate
+                                ? 'material-symbols:check-circle'
+                                : 'material-symbols:warning'
+                            }
+                            sx={{
+                              color:
+                                selectedMonthData.surplus >= 0.8 * mortgageEstimate
+                                  ? 'success.main'
+                                  : 'warning.main',
+                            }}
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={`Surplus: ${fmt(selectedMonthData.surplus)}`}
+                          secondary={`This is ${selectedMonthData.surplus >= 0.8 * mortgageEstimate ? 'close to' : 'below'} 80% of your estimated repayment (${fmt(mortgageEstimate * 0.8)})`}
+                        />
+                      </ListItem>
+                      <ListItem sx={{ py: 0 }}>
+                        <ListItemIcon>
+                          <IconifyIcon
+                            icon={
+                              selectedMonthData.dti < 0.5
+                                ? 'material-symbols:check-circle'
+                                : 'material-symbols:warning'
+                            }
+                            sx={{
+                              color: selectedMonthData.dti < 0.5 ? 'success.main' : 'warning.main',
+                            }}
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={`Debt-to-Income: ${(selectedMonthData.dti * 100).toFixed(1)}%`}
+                          secondary={`This is ${selectedMonthData.dti < 0.5 ? 'below' : 'at or above'} the 50% threshold`}
+                        />
+                      </ListItem>
+                    </List>
+                  </Alert>
+                )}
+
+                {selectedMonthData.verdict === 'Red' && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                      🔴 Needs Immediate Attention
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      This month shows concerning financial patterns:
+                    </Typography>
+                    <List dense>
+                      <ListItem sx={{ py: 0 }}>
+                        <ListItemIcon>
+                          <IconifyIcon
+                            icon={
+                              selectedMonthData.surplus < 0
+                                ? 'material-symbols:error'
+                                : 'material-symbols:warning'
+                            }
+                            sx={{ color: 'error.main' }}
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={`Surplus: ${fmt(selectedMonthData.surplus)}`}
+                          secondary={
+                            selectedMonthData.surplus < 0
+                              ? 'Negative surplus means you spent more than you earned this month'
+                              : `This is significantly below your estimated repayment of ${fmt(mortgageEstimate)}`
+                          }
+                        />
+                      </ListItem>
+                      <ListItem sx={{ py: 0 }}>
+                        <ListItemIcon>
+                          <IconifyIcon
+                            icon="material-symbols:percent"
+                            sx={{ color: 'error.main' }}
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={`Debt-to-Income: ${(selectedMonthData.dti * 100).toFixed(1)}%`}
+                          secondary="This exceeds the 50% threshold, indicating high debt burden"
+                        />
+                      </ListItem>
+                    </List>
+                  </Alert>
+                )}
+              </Box>
+
+              {/* Detailed Breakdown */}
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
+                  📈 Detailed Financial Breakdown
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <Card sx={{ p: 2, backgroundColor: 'grey.50' }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+                        Expense Analysis
+                      </Typography>
+                      <Stack spacing={1}>
+                        <Stack direction="row" justifyContent="space-between">
+                          <Typography variant="body2" color="text.secondary">
+                            Essential Expenses:
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {fmt(selectedMonthData.essentialExpenses)} (
+                            {(selectedMonthData.essentialRatio * 100).toFixed(1)}%)
+                          </Typography>
+                        </Stack>
+                        <Stack direction="row" justifyContent="space-between">
+                          <Typography variant="body2" color="text.secondary">
+                            Discretionary Expenses:
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {fmt(selectedMonthData.discretionaryExpenses)} (
+                            {(selectedMonthData.discretionaryRatio * 100).toFixed(1)}%)
+                          </Typography>
+                        </Stack>
+                        <Stack direction="row" justifyContent="space-between">
+                          <Typography variant="body2" color="text.secondary">
+                            Total Expenses:
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {fmt(selectedMonthData.expenses)}
+                          </Typography>
+                        </Stack>
+                      </Stack>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Card sx={{ p: 2, backgroundColor: 'grey.50' }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+                        Affordability Test
+                      </Typography>
+                      <Stack spacing={1}>
+                        <Stack direction="row" justifyContent="space-between">
+                          <Typography variant="body2" color="text.secondary">
+                            Monthly Surplus:
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: 600,
+                              color: selectedMonthData.surplus >= 0 ? 'success.main' : 'error.main',
+                            }}
+                          >
+                            {fmt(selectedMonthData.surplus)}
+                          </Typography>
+                        </Stack>
+                        <Stack direction="row" justifyContent="space-between">
+                          <Typography variant="body2" color="text.secondary">
+                            Test Repayment:
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {fmt(mortgageEstimate)}
+                          </Typography>
+                        </Stack>
+                        <Stack direction="row" justifyContent="space-between">
+                          <Typography variant="body2" color="text.secondary">
+                            Remaining After Repayment:
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: 600,
+                              color:
+                                selectedMonthData.surplus - mortgageEstimate >= 0
+                                  ? 'success.main'
+                                  : 'error.main',
+                            }}
+                          >
+                            {fmt(selectedMonthData.surplus - mortgageEstimate)}
+                          </Typography>
+                        </Stack>
+                      </Stack>
+                    </Card>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              {/* Recommendations */}
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
+                  💡 Recommendations for This Month
+                </Typography>
+                <List>
+                  {selectedMonthData.verdict === 'Green' && (
+                    <>
+                      <ListItem>
+                        <ListItemIcon>
+                          <IconifyIcon
+                            icon="material-symbols:check-circle"
+                            sx={{ color: 'success.main' }}
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="Excellent financial position"
+                          secondary="You can comfortably handle additional financial commitments this month"
+                        />
+                      </ListItem>
+                      <ListItem>
+                        <ListItemIcon>
+                          <IconifyIcon
+                            icon="material-symbols:savings"
+                            sx={{ color: 'info.main' }}
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="Consider saving the surplus"
+                          secondary="Use the extra money to build emergency fund or invest"
+                        />
+                      </ListItem>
+                    </>
+                  )}
+
+                  {selectedMonthData.verdict === 'Amber' && (
+                    <>
+                      <ListItem>
+                        <ListItemIcon>
+                          <IconifyIcon
+                            icon="material-symbols:warning"
+                            sx={{ color: 'warning.main' }}
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="Monitor spending closely"
+                          secondary="Consider reducing discretionary expenses to improve affordability"
+                        />
+                      </ListItem>
+                      <ListItem>
+                        <ListItemIcon>
+                          <IconifyIcon icon="material-symbols:budget" sx={{ color: 'info.main' }} />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="Create a budget"
+                          secondary="Track your spending to identify areas for improvement"
+                        />
+                      </ListItem>
+                    </>
+                  )}
+
+                  {selectedMonthData.verdict === 'Red' && (
+                    <>
+                      <ListItem>
+                        <ListItemIcon>
+                          <IconifyIcon icon="material-symbols:error" sx={{ color: 'error.main' }} />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="Immediate action required"
+                          secondary="Focus on reducing expenses and increasing income"
+                        />
+                      </ListItem>
+                      <ListItem>
+                        <ListItemIcon>
+                          <IconifyIcon
+                            icon="material-symbols:credit-card-off"
+                            sx={{ color: 'error.main' }}
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="Avoid new commitments"
+                          secondary="Don't take on additional loans or credit until situation improves"
+                        />
+                      </ListItem>
+                      <ListItem>
+                        <ListItemIcon>
+                          <IconifyIcon
+                            icon="material-symbols:emergency"
+                            sx={{ color: 'warning.main' }}
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="Seek financial advice"
+                          secondary="Consider consulting a financial advisor for debt management strategies"
+                        />
+                      </ListItem>
+                    </>
+                  )}
+                </List>
+              </Box>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={() => setMonthlyExplanationModalOpen(false)}
             variant="contained"
             startIcon={<IconifyIcon icon="material-symbols:check" />}
           >
