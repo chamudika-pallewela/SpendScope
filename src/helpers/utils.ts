@@ -55,7 +55,13 @@ export const safeFormatDate = (date: Date | string, fallback: string = 'Invalid 
 };
 
 // ---------------- AML / Risk Analysis ----------------
-import { Transaction } from 'config/categories';
+import {
+  Transaction,
+  TransactionResponse,
+  BackendResponse,
+  BackendResult,
+  PersonalDetailsType,
+} from 'config/categories';
 
 export type RiskSeverity = 'High' | 'Medium' | 'Low' | 'None';
 
@@ -143,35 +149,31 @@ export function analyzeRisks(transactions: Transaction[]): {
       (t.category === 'Lifestyle & Discretionary' &&
         t.subcategory === 'Entertainment' &&
         /gambling|betting|casino|lottery|poker|bingo|sports betting|bet|wager|stake/i.test(
-          t.description || t.raw_description || '',
+          t.description || '',
         )) ||
       /gambling|betting|casino|lottery|poker|bingo|sports betting|bet|wager|stake/i.test(
-        t.description || t.raw_description || '',
+        t.description || '',
       );
     if (isGambling && t.money_out) m.gamblingOut += t.money_out;
 
     // Cash deposit detection
     const isCashDepositMonthly =
       (t.category === 'Income Categories' &&
-        /cash|deposit|atm|withdrawal|bank transfer/i.test(
-          t.description || t.raw_description || '',
-        )) ||
-      /cash deposit|cash in|atm deposit|bank deposit/i.test(
-        t.description || t.raw_description || '',
-      );
+        /cash|deposit|atm|withdrawal|bank transfer/i.test(t.description || '')) ||
+      /cash deposit|cash in|atm deposit|bank deposit/i.test(t.description || '');
     if (isCashDepositMonthly && t.money_in) m.cashIn.push(t.money_in);
 
     // Transfer detection
     const isTransfer =
       (t.category === 'Financial Commitments' && t.subcategory === 'Transfer out') ||
       /transfer|remittance|international|swift|iban|sepa|wire|payment to/i.test(
-        t.description || t.raw_description || '',
+        t.description || '',
       );
     if (isTransfer && t.money_out) m.transfersOut += t.money_out;
     // Salary detection - Updated for actual category structure
     const isSalary =
       (t.category === 'Income Categories' && t.subcategory === 'Salary (PAYE)') ||
-      /salary|payroll|wage|pay/i.test(t.description || t.raw_description || '');
+      /salary|payroll|wage|pay/i.test(t.description || '');
     if (isSalary && t.money_in) {
       m.salaryDates.push(t.date);
     }
@@ -190,10 +192,10 @@ export function analyzeRisks(transactions: Transaction[]): {
       ((t.category === 'Lifestyle & Discretionary' &&
         t.subcategory === 'Entertainment' &&
         /gambling|betting|casino|lottery|poker|bingo|sports betting|bet|wager|stake/i.test(
-          t.description || t.raw_description || '',
+          t.description || '',
         )) ||
         /gambling|betting|casino|lottery|poker|bingo|sports betting|bet|wager|stake/i.test(
-          t.description || t.raw_description || '',
+          t.description || '',
         )) &&
       t.money_out;
 
@@ -208,10 +210,10 @@ export function analyzeRisks(transactions: Transaction[]): {
           ((tx.category === 'Lifestyle & Discretionary' &&
             tx.subcategory === 'Entertainment' &&
             /gambling|betting|casino|lottery|poker|bingo|sports betting|bet|wager|stake/i.test(
-              tx.description || tx.raw_description || '',
+              tx.description || '',
             )) ||
             /gambling|betting|casino|lottery|poker|bingo|sports betting|bet|wager|stake/i.test(
-              tx.description || tx.raw_description || '',
+              tx.description || '',
             )),
       ).length;
 
@@ -263,12 +265,8 @@ export function analyzeRisks(transactions: Transaction[]): {
     // Enhanced Cash Deposit Risk Indicators - Updated for actual category structure
     const isCashDeposit =
       ((t.category === 'Income Categories' &&
-        /cash|deposit|atm|withdrawal|bank transfer/i.test(
-          t.description || t.raw_description || '',
-        )) ||
-        /cash deposit|cash in|atm deposit|bank deposit/i.test(
-          t.description || t.raw_description || '',
-        )) &&
+        /cash|deposit|atm|withdrawal|bank transfer/i.test(t.description || '')) ||
+        /cash deposit|cash in|atm deposit|bank deposit/i.test(t.description || '')) &&
       t.money_in;
 
     if (isCashDeposit && t.money_in) {
@@ -278,12 +276,8 @@ export function analyzeRisks(transactions: Transaction[]): {
           txIdx <= idx &&
           toMonthKey(tx.date) === monthKey &&
           ((tx.category === 'Income Categories' &&
-            /cash|deposit|atm|withdrawal|bank transfer/i.test(
-              tx.description || tx.raw_description || '',
-            )) ||
-            /cash deposit|cash in|atm deposit|bank deposit/i.test(
-              tx.description || tx.raw_description || '',
-            )),
+            /cash|deposit|atm|withdrawal|bank transfer/i.test(tx.description || '')) ||
+            /cash deposit|cash in|atm deposit|bank deposit/i.test(tx.description || '')),
       ).length;
 
       // Large single deposits (>£1,000 or proportionally high vs salary)
@@ -330,7 +324,7 @@ export function analyzeRisks(transactions: Transaction[]): {
       }
 
       // Unexplained deposits (no clear source)
-      const desc = (t.raw_description || t.description || '').toLowerCase();
+      const desc = (t.description || '').toLowerCase();
       const isUnexplained = !/salary|wage|pay|tip|cashback|refund|withdrawal|atm/i.test(desc);
       if (isUnexplained && t.money_in >= 500) {
         reasons.push(
@@ -355,7 +349,7 @@ export function analyzeRisks(transactions: Transaction[]): {
       'kucoin',
     ];
     const isCryptoTransaction = cryptoExchanges.some((exchange) =>
-      (t.description || t.raw_description || '').toLowerCase().includes(exchange),
+      (t.description || '').toLowerCase().includes(exchange),
     );
 
     const isTransferTransaction =
@@ -363,11 +357,11 @@ export function analyzeRisks(transactions: Transaction[]): {
       !isCryptoTransaction && // Exclude crypto transactions from general transfer detection
       ((t.category === 'Financial Commitments' && t.subcategory === 'Transfer out') ||
         /transfer|remittance|international|swift|iban|sepa|wire|payment to/i.test(
-          t.description || t.raw_description || '',
+          t.description || '',
         ));
 
     if (isTransferTransaction && t.money_out) {
-      const desc = (t.raw_description || t.description || '').toLowerCase();
+      const desc = (t.description || '').toLowerCase();
       const isInternational = /international|swift|iban|sepa|fx|foreign/i.test(desc);
       const isNewPayee = !knownPayees.has(desc) && t.money_out >= 1000;
 
@@ -419,7 +413,7 @@ export function analyzeRisks(transactions: Transaction[]): {
         (tx, txIdx) =>
           txIdx <= idx &&
           tx.money_out &&
-          (tx.raw_description || tx.description || '').toLowerCase() === desc &&
+          (tx.description || '').toLowerCase() === desc &&
           toMonthKey(tx.date) === monthKey,
       ).length;
 
@@ -471,7 +465,7 @@ export function analyzeRisks(transactions: Transaction[]): {
     // High-cost credit use (payday loans)
     const isPaydayLoan =
       /payday|wonga|quickquid|provident|brighthouse|bright house|sunny|satsuma/i.test(
-        t.description || t.raw_description || '',
+        t.description || '',
       );
     if (isPaydayLoan && t.money_out) {
       reasons.push(
@@ -482,11 +476,11 @@ export function analyzeRisks(transactions: Transaction[]): {
 
     // Crypto transactions - moved before transfer detection to avoid double-counting
     const isCryptoExchange = cryptoExchanges.some((exchange) =>
-      (t.description || t.raw_description || '').toLowerCase().includes(exchange),
+      (t.description || '').toLowerCase().includes(exchange),
     );
     if (isCryptoExchange && t.money_out) {
       const exchangeName = cryptoExchanges.find((exchange) =>
-        (t.description || t.raw_description || '').toLowerCase().includes(exchange),
+        (t.description || '').toLowerCase().includes(exchange),
       );
 
       // Enhanced crypto risk explanations
@@ -508,7 +502,7 @@ export function analyzeRisks(transactions: Transaction[]): {
       }
 
       // Additional crypto-specific risk factors
-      const desc = (t.description || t.raw_description || '').toLowerCase();
+      const desc = (t.description || '').toLowerCase();
       if (desc.includes('etoro') || desc.includes('robinhood')) {
         reasons.push(
           `📊 TRADING PLATFORM: ${exchangeName?.toUpperCase()} is a trading platform (higher risk due to potential for rapid money movement)`,
@@ -541,7 +535,7 @@ export function analyzeRisks(transactions: Transaction[]): {
       'dior',
     ];
     const isLuxurySpending = luxuryKeywords.some((keyword) =>
-      (t.description || t.raw_description || '').toLowerCase().includes(keyword),
+      (t.description || '').toLowerCase().includes(keyword),
     );
 
     if (isLuxurySpending && t.money_out && t.money_out > 1000) {
@@ -693,3 +687,440 @@ export function analyzeRisks(transactions: Transaction[]): {
 
   return { txRisks, monthly };
 }
+
+// ---------------- Transaction Processing Utilities ----------------
+
+/**
+ * Filters out balance forward/brought forward transactions
+ * @param transactions Array of transactions to filter
+ * @returns Filtered transactions without balance forward entries
+ */
+export const filterBalanceForwardTransactions = (transactions: Transaction[]): Transaction[] => {
+  return transactions.filter((transaction) => {
+    const description = transaction.description?.toLowerCase() || '';
+    const rawDescription = transaction.raw_description?.toLowerCase() || '';
+
+    // Block balance carried forward and balance brought forward (case insensitive)
+    const balanceForwardPatterns = [
+      'balance carried forward',
+      'balance brought forward',
+      'balance c/f',
+      'balance b/f',
+      'bal carried forward',
+      'bal brought forward',
+      'bal c/f',
+      'bal b/f',
+    ];
+
+    return !balanceForwardPatterns.some(
+      (pattern) => description.includes(pattern) || rawDescription.includes(pattern),
+    );
+  });
+};
+
+/**
+ * Truncates transaction descriptions to maximum 2 lines
+ * @param description The description to truncate
+ * @param maxLines Maximum number of lines (default: 2)
+ * @returns Truncated description
+ */
+export const truncateDescription = (description: string, maxLines: number = 2): string => {
+  if (!description) return '';
+
+  const lines = description.split('\n');
+  if (lines.length <= maxLines) {
+    return description;
+  }
+
+  return lines.slice(0, maxLines).join('\n') + (lines.length > maxLines ? '...' : '');
+};
+
+/**
+ * Processes backend response to extract personal details and filter transactions
+ * @param backendResponse The response from the backend
+ * @returns Processed transaction response with personal details
+ */
+export const processBackendResponse = (backendResponse: BackendResponse): TransactionResponse => {
+  if (!backendResponse || !backendResponse.results || backendResponse.results.length === 0) {
+    throw new Error('Invalid backend response format');
+  }
+
+  const firstResult = backendResponse.results[0];
+
+  // Extract personal details
+  const personalDetails = {
+    customer: firstResult.customer || 'Unknown',
+    customer_address: firstResult.customer_address || 'Unknown',
+    account_number: firstResult.account_number || 'Unknown',
+    account_number_masked: firstResult.account_number_masked || 'Unknown',
+    sort_code: firstResult.sort_code || 'Unknown',
+    phone_number: firstResult.phone_number || 'Unknown',
+    email: firstResult.email || 'Unknown',
+    customer_id: firstResult.customer_id || 'Unknown',
+    reference_number: firstResult.reference_number || 'Unknown',
+  };
+
+  // Filter and process transactions
+  const filteredTransactions = filterBalanceForwardTransactions(firstResult.transactions || []);
+
+  // Truncate descriptions
+  const processedTransactions = filteredTransactions.map((transaction) => ({
+    ...transaction,
+    description: truncateDescription(transaction.description),
+  }));
+
+  return {
+    bank: firstResult.bank || 'Unknown',
+    transactions: processedTransactions,
+    personalDetails,
+  };
+};
+
+/**
+ * Processes backend response for multiple banks
+ * @param backendResponse The response from the backend
+ * @returns Array of processed bank results with personal details
+ */
+export const processMultiBankResponse = (
+  backendResponse: BackendResponse,
+): Array<{
+  bank: string;
+  customer: string;
+  transactions: Transaction[];
+  personalDetails: PersonalDetailsType;
+  logo?: string;
+}> => {
+  if (!backendResponse || !backendResponse.results || backendResponse.results.length === 0) {
+    throw new Error('Invalid backend response format');
+  }
+
+  return backendResponse.results.map((result: BackendResult) => {
+    // Extract personal details
+    const personalDetails = {
+      customer: result.customer || 'Unknown',
+      customer_address: result.customer_address || 'Unknown',
+      account_number: result.account_number || 'Unknown',
+      account_number_masked: result.account_number_masked || 'Unknown',
+      sort_code: result.sort_code || 'Unknown',
+      phone_number: result.phone_number || 'Unknown',
+      email: result.email || 'Unknown',
+      customer_id: result.customer_id || 'Unknown',
+      reference_number: result.reference_number || 'Unknown',
+    };
+
+    // Filter and process transactions
+    const filteredTransactions = filterBalanceForwardTransactions(result.transactions || []);
+
+    // Truncate descriptions
+    const processedTransactions = filteredTransactions.map((transaction: Transaction) => ({
+      ...transaction,
+      description: truncateDescription(transaction.description),
+    }));
+
+    return {
+      bank: result.bank || 'Unknown Bank',
+      customer: result.customer || 'Unknown Customer',
+      transactions: processedTransactions,
+      personalDetails,
+      logo: getBankLogo(result.bank, result.customer, result.sort_code),
+    };
+  });
+};
+
+/**
+ * Smart bank detection based on customer name and other clues
+ * @param bankName The name of the bank
+ * @param customerName The customer name (optional)
+ * @param sortCode The sort code (optional)
+ * @returns Detected bank name or original bank name
+ */
+export const detectBankName = (
+  bankName: string,
+  customerName?: string,
+  sortCode?: string,
+): string => {
+  // If we already have a proper bank name, return it
+  if (bankName && bankName !== 'Unknown Bank' && !bankName.includes('Unknown')) {
+    return bankName;
+  }
+
+  // Try to detect bank from customer name patterns
+  if (customerName) {
+    const customerLower = customerName.toLowerCase();
+
+    // Monument Bank detection
+    if (customerLower.includes('easy access savings') || customerLower.includes('savings')) {
+      return 'Monument';
+    }
+
+    // Other bank-specific patterns can be added here
+  }
+
+  // Try to detect bank from sort code patterns
+  if (sortCode) {
+    const sortCodeMap: Record<string, string> = {
+      '04-13-67': 'Monument', // Monument Bank sort code
+      '30-98-91': 'Lloyds', // Lloyds Bank sort code
+      '77-09-03': 'Lloyds', // Another Lloyds sort code
+    };
+
+    if (sortCodeMap[sortCode]) {
+      return sortCodeMap[sortCode];
+    }
+  }
+
+  // Return original if no detection possible
+  return bankName;
+};
+
+/**
+ * Gets bank logo URL using Clearbit Logo API
+ * @param bankName The name of the bank
+ * @param customerName The customer name (optional, for smart detection)
+ * @param sortCode The sort code (optional, for smart detection)
+ * @returns Bank logo URL or undefined
+ */
+export const getBankLogo = (
+  bankName: string,
+  customerName?: string,
+  sortCode?: string,
+): string | undefined => {
+  if (!bankName) return undefined;
+
+  // Handle multi-bank scenarios - don't try to get logo for combined views
+  if (bankName.includes('Multiple Banks') || bankName.includes('accounts')) {
+    return undefined;
+  }
+
+  // Use smart detection to get the actual bank name
+  const detectedBankName = detectBankName(bankName, customerName, sortCode);
+
+  if (detectedBankName === 'Unknown Bank' || detectedBankName.includes('Unknown')) {
+    return undefined;
+  }
+
+  // Clean detected bank name for API
+  const cleanBankName = detectedBankName
+    .toLowerCase()
+    .replace(/\s+/g, '') // Remove spaces
+    .replace(/[^a-z0-9]/g, ''); // Remove special characters
+
+  // Map bank names to their domain names for better API results
+  const bankDomainMap: Record<string, string> = {
+    lloyds: 'lloydsbank.com',
+    hsbc: 'hsbc.co.uk',
+    barclays: 'barclays.co.uk',
+    natwest: 'natwest.com',
+    santander: 'santander.co.uk',
+    halifax: 'halifax.co.uk',
+    nationwide: 'nationwide.co.uk',
+    tsb: 'tsb.co.uk',
+    monument: 'monument.co.uk',
+    chase: 'chase.com',
+    starling: 'starlingbank.com',
+    revolut: 'revolut.com',
+    monzo: 'monzo.com',
+    firstdirect: 'firstdirect.com',
+    metro: 'metrobank.co.uk',
+    virginmoney: 'virginmoney.com',
+    yorkshire: 'ybs.co.uk',
+    clydesdale: 'cbonline.co.uk',
+    ulster: 'ulsterbank.co.uk',
+    bankofscotland: 'bankofscotland.co.uk',
+    rbs: 'rbs.co.uk',
+    tide: 'tide.co',
+    cashplus: 'cashplus.com',
+    thinkmoney: 'thinkmoney.co.uk',
+  };
+
+  const domain = bankDomainMap[cleanBankName];
+  if (domain) {
+    // Use Clearbit Logo API (free, reliable, and fast)
+    return `https://logo.clearbit.com/${domain}`;
+  }
+
+  // Fallback: try to construct domain from bank name
+  const possibleDomains = [
+    `${cleanBankName}.com`,
+    `${cleanBankName}.co.uk`,
+    `${cleanBankName}bank.com`,
+    `${cleanBankName}bank.co.uk`,
+  ];
+
+  // Validate that the domain looks reasonable before returning
+  const firstDomain = possibleDomains[0];
+  if (
+    firstDomain &&
+    firstDomain.length > 3 &&
+    !firstDomain.includes('(') &&
+    !firstDomain.includes(')')
+  ) {
+    return `https://logo.clearbit.com/${firstDomain}`;
+  }
+
+  // If domain doesn't look valid, return undefined
+  return undefined;
+};
+
+/**
+ * Gets bank logo with fallback to initials
+ * @param bankName The name of the bank
+ * @param customerName The customer name (optional, for smart detection)
+ * @param sortCode The sort code (optional, for smart detection)
+ * @returns Bank logo URL or bank initials
+ */
+export const getBankLogoWithFallback = (
+  bankName: string,
+  customerName?: string,
+  sortCode?: string,
+): { logo?: string; initials: string } => {
+  const logo = getBankLogo(bankName, customerName, sortCode);
+
+  // Handle multi-bank scenarios with special initials
+  if (bankName.includes('Multiple Banks') || bankName.includes('accounts')) {
+    return { logo: undefined, initials: 'ALL' };
+  }
+
+  // Use detected bank name for initials if available
+  const detectedBankName = detectBankName(bankName, customerName, sortCode);
+  const nameForInitials = detectedBankName !== bankName ? detectedBankName : bankName;
+
+  const initials = nameForInitials
+    .split(' ')
+    .map((word) => word.charAt(0))
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
+
+  return { logo, initials };
+};
+
+/**
+ * Groups banks by name and merges their data
+ * @param banks Array of bank data to group
+ * @returns Grouped banks with merged transactions and account details
+ */
+/**
+ * Extracts unique months from transactions
+ * @param transactions Array of transactions
+ * @returns Array of month objects with label and value
+ */
+export const extractMonthsFromTransactions = (
+  transactions: Transaction[],
+): Array<{
+  label: string;
+  value: string;
+  count: number;
+}> => {
+  const monthMap = new Map<string, number>();
+
+  transactions.forEach((transaction) => {
+    try {
+      const date = new Date(transaction.date);
+      if (!isNaN(date.getTime())) {
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + 1);
+      }
+    } catch {
+      console.warn('Invalid date format:', transaction.date);
+    }
+  });
+
+  return Array.from(monthMap.entries())
+    .map(([value, count]) => {
+      const [year, month] = value.split('-');
+      const date = new Date(parseInt(year), parseInt(month) - 1);
+      const label = date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+      });
+
+      return { label, value, count };
+    })
+    .sort((a, b) => a.value.localeCompare(b.value));
+};
+
+/**
+ * Filters transactions by month
+ * @param transactions Array of transactions
+ * @param monthValue Month value in format "YYYY-MM"
+ * @returns Filtered transactions for the specified month
+ */
+export const filterTransactionsByMonth = (
+  transactions: Transaction[],
+  monthValue: string,
+): Transaction[] => {
+  return transactions.filter((transaction) => {
+    try {
+      const date = new Date(transaction.date);
+      if (isNaN(date.getTime())) return false;
+
+      const transactionMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      return transactionMonth === monthValue;
+    } catch {
+      return false;
+    }
+  });
+};
+
+export const groupBanksByName = (
+  banks: Array<{
+    bank: string;
+    customer: string;
+    transactions: Transaction[];
+    personalDetails: PersonalDetailsType;
+    logo?: string;
+  }>,
+): Array<{
+  bank: string;
+  customer: string;
+  transactions: Transaction[];
+  personalDetails: PersonalDetailsType;
+  logo?: string;
+  accountCount: number;
+  accounts: Array<{
+    customer: string;
+    account_number_masked: string;
+    sort_code: string;
+    transactionCount: number;
+  }>;
+}> => {
+  const bankGroups = new Map<string, typeof banks>();
+
+  // Group banks by name (normalize for comparison)
+  banks.forEach((bank) => {
+    // Normalize bank name for consistent grouping
+    const bankName = bank.bank.trim().toLowerCase();
+    if (!bankGroups.has(bankName)) {
+      bankGroups.set(bankName, []);
+    }
+    bankGroups.get(bankName)!.push(bank);
+  });
+
+  // Merge grouped banks
+  return Array.from(bankGroups.entries()).map(([, bankGroup]) => {
+    // Merge all transactions
+    const allTransactions = bankGroup.flatMap((bank) => bank.transactions);
+
+    // Use the first bank's personal details as primary (they should be similar for same bank)
+    const primaryBank = bankGroup[0];
+    // Create account details for each account
+    const accounts = bankGroup.map((bank) => ({
+      customer: bank.customer,
+      account_number_masked: bank.personalDetails.account_number_masked,
+      sort_code: bank.personalDetails.sort_code,
+      transactionCount: bank.transactions.length,
+    }));
+
+    return {
+      bank: primaryBank.bank, // Use original bank name from first bank
+      customer: primaryBank.customer,
+      transactions: allTransactions,
+      personalDetails: primaryBank.personalDetails,
+      logo: primaryBank.logo,
+      accountCount: bankGroup.length,
+      accounts,
+    };
+  });
+};

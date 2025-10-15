@@ -1,5 +1,7 @@
 import { database } from '../config/firebase';
 import { ref, push, get, query, orderByChild, equalTo, remove, set } from 'firebase/database';
+import { processMultiBankResponse, groupBanksByName } from '../helpers/utils';
+import { BackendResponse } from '../config/categories';
 
 export interface SavedUpload {
   id: string;
@@ -134,10 +136,48 @@ export const getUserUploads = async (userId: string): Promise<UploadSummary[]> =
         return 0;
       })();
 
+      // Extract actual customer names and bank names from transaction data
+      const { extractedCustomerName, extractedBankName } = (() => {
+        try {
+          if (
+            uploadData.originalResponse &&
+            typeof uploadData.originalResponse === 'object' &&
+            'results' in uploadData.originalResponse &&
+            Array.isArray((uploadData.originalResponse as { results: unknown[] }).results)
+          ) {
+            const processedMultiBankData = processMultiBankResponse(
+              uploadData.originalResponse as BackendResponse,
+            );
+            const groupedBanks = groupBanksByName(processedMultiBankData);
+
+            if (groupedBanks.length > 0) {
+              // Get unique customer names
+              const customerNames = [...new Set(groupedBanks.map((bank) => bank.customer))];
+              const extractedCustomerName =
+                customerNames.length === 1 ? customerNames[0] : customerNames.join(', ');
+
+              // Get unique bank names
+              const bankNames = [...new Set(groupedBanks.map((bank) => bank.bank))];
+              const extractedBankName =
+                bankNames.length === 1 ? bankNames[0] : bankNames.join(', ');
+
+              return { extractedCustomerName, extractedBankName };
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to extract customer/bank names from transaction data:', error);
+        }
+
+        return {
+          extractedCustomerName: uploadData.customerName,
+          extractedBankName: uploadData.bank || 'Unknown Bank',
+        };
+      })();
+
       uploads.push({
         id,
-        customerName: uploadData.customerName,
-        bank: uploadData.bank || 'Unknown Bank',
+        customerName: extractedCustomerName,
+        bank: extractedBankName,
         dateRange: uploadData.dateRange
           ? (() => {
               try {

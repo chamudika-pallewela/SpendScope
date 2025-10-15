@@ -18,7 +18,14 @@ import {
 import IconifyIcon from 'components/base/IconifyIcon';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getUploadById, deleteUpload, SavedUpload } from '../../../services/uploadService';
-import { TransactionResponse } from '../../../config/categories';
+import { TransactionResponse, Transaction } from '../../../config/categories';
+import {
+  processMultiBankResponse,
+  groupBanksByName,
+  extractMonthsFromTransactions,
+  filterTransactionsByMonth,
+} from '../../../helpers/utils';
+import { BackendResponse } from '../../../config/categories';
 // import paths from '../../../routes/path';
 import TransactionSummary from 'components/sections/dashboard/transactions/TransactionSummary';
 import TransactionCategories from 'components/sections/dashboard/transactions/TransactionCategories';
@@ -27,6 +34,8 @@ import AffordabilityReport from 'components/sections/dashboard/transactions/Affo
 import AMLRiskIndicators from 'components/sections/dashboard/transactions/AMLRiskIndicators';
 import IncomeVerification from 'components/sections/dashboard/transactions/IncomeVerification';
 import BankSelector, { BankData } from 'components/sections/dashboard/transactions/BankSelector';
+import PersonalDetails from 'components/sections/dashboard/transactions/PersonalDetails';
+import MonthSelector from 'components/sections/dashboard/transactions/MonthSelector';
 
 const UploadDetailPage = () => {
   const { id } = useParams();
@@ -39,6 +48,7 @@ const UploadDetailPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
 
   useEffect(() => {
     if (id && currentUser) {
@@ -100,38 +110,119 @@ const UploadDetailPage = () => {
   };
 
   // Convert the saved response to the format expected by components
-  const transactionData =
-    upload &&
-    upload.originalResponse &&
-    typeof upload.originalResponse === 'object' &&
-    'transactions' in upload.originalResponse
-      ? {
+  const transactionData = useMemo(() => {
+    if (!upload || !upload.originalResponse) return null;
+
+    try {
+      // Try to process using the new backend response format
+      // Check if the response has the expected structure
+      if (
+        typeof upload.originalResponse === 'object' &&
+        upload.originalResponse !== null &&
+        'results' in upload.originalResponse &&
+        Array.isArray((upload.originalResponse as { results: unknown[] }).results)
+      ) {
+        // Process all results and group by bank name (same logic as dashboard)
+        const processedMultiBankData = processMultiBankResponse(
+          upload.originalResponse as BackendResponse,
+        );
+        const groupedBanks = groupBanksByName(processedMultiBankData);
+
+        // For uploads page, we'll use the first bank or combine all if multiple
+        if (groupedBanks.length === 1) {
+          const singleBankData = groupedBanks[0];
+          return {
+            bank: singleBankData.bank,
+            transactions: singleBankData.transactions,
+            personalDetails: singleBankData.personalDetails,
+          };
+        } else if (groupedBanks.length > 1) {
+          // Multiple banks - combine all transactions
+          const allTransactions = groupedBanks.flatMap((bank) => bank.transactions);
+          const firstBank = groupedBanks[0];
+          return {
+            bank: `Multiple Banks (${groupedBanks.length} accounts)`,
+            transactions: allTransactions,
+            personalDetails: firstBank.personalDetails,
+          };
+        }
+      } else {
+        throw new Error('Response does not have expected BackendResponse structure');
+      }
+    } catch (error) {
+      console.warn('Failed to process with new format, falling back to legacy format:', error);
+
+      // Fallback to legacy format processing
+      if (
+        typeof upload.originalResponse === 'object' &&
+        'transactions' in upload.originalResponse
+      ) {
+        return {
           bank: upload.bank,
           transactions: (
             upload.originalResponse as {
               transactions: Array<{ bank: string; [key: string]: unknown }>;
             }
           ).transactions,
-        }
-      : upload &&
-          upload.originalResponse &&
-          typeof upload.originalResponse === 'object' &&
-          'results' in upload.originalResponse &&
-          Array.isArray((upload.originalResponse as { results: unknown[] }).results) &&
-          (upload.originalResponse as { results: unknown[] }).results.length > 0
-        ? {
-            bank: upload.bank,
-            transactions: (
-              upload.originalResponse as {
-                results: Array<{ transactions?: Array<{ bank: string; [key: string]: unknown }> }>;
-              }
-            ).results.flatMap((result) => result.transactions || []),
-          }
-        : null;
+          personalDetails: undefined, // Legacy format doesn't have personal details
+        };
+      } else if (
+        typeof upload.originalResponse === 'object' &&
+        'results' in upload.originalResponse &&
+        Array.isArray((upload.originalResponse as { results: unknown[] }).results) &&
+        (upload.originalResponse as { results: unknown[] }).results.length > 0
+      ) {
+        return {
+          bank: upload.bank,
+          transactions: (
+            upload.originalResponse as {
+              results: Array<{ transactions?: Array<{ bank: string; [key: string]: unknown }> }>;
+            }
+          ).results.flatMap((result) => result.transactions || []),
+          personalDetails: undefined, // Legacy format doesn't have personal details
+        };
+      }
 
-  // Extract bank data from transaction data
+      return null;
+    }
+  }, [upload]);
+
+  // Extract bank data from transaction data using the same grouping logic as dashboard
   const bankData = useMemo(() => {
-    if (!transactionData || !upload) return [];
+    if (!upload || !upload.originalResponse) return [];
+
+    try {
+      // Check if the response has the expected structure
+      if (
+        typeof upload.originalResponse === 'object' &&
+        upload.originalResponse !== null &&
+        'results' in upload.originalResponse &&
+        Array.isArray((upload.originalResponse as { results: unknown[] }).results)
+      ) {
+        // Process all results and group by bank name (same logic as dashboard)
+        const processedMultiBankData = processMultiBankResponse(
+          upload.originalResponse as BackendResponse,
+        );
+        const groupedBanks = groupBanksByName(processedMultiBankData);
+
+        // Convert grouped banks to BankData format
+        return groupedBanks.map((bankInfo) => ({
+          bank: bankInfo.bank,
+          customer_name: bankInfo.customer,
+          transactionCount: bankInfo.transactions.length,
+          logo: bankInfo.logo,
+          account_number_masked: bankInfo.personalDetails.account_number_masked,
+          sort_code: bankInfo.personalDetails.sort_code,
+          accountCount: bankInfo.accountCount,
+          accounts: bankInfo.accounts,
+        }));
+      }
+    } catch (error) {
+      console.warn('Failed to process bank data for selector:', error);
+    }
+
+    // Fallback to simple bank data extraction
+    if (!transactionData) return [];
 
     const banks: BankData[] = [];
     const bankMap = new Map<string, { customer_name: string; transactionCount: number }>();
@@ -159,22 +250,99 @@ const UploadDetailPage = () => {
     });
 
     return banks;
-  }, [transactionData, upload?.customerName]);
+  }, [upload, transactionData]);
 
-  // Filter transactions based on selected bank
+  // Extract months from current transaction data
+  const availableMonths = useMemo(() => {
+    if (transactionData && transactionData.transactions) {
+      // Filter out non-Transaction objects and extract months
+      const validTransactions = transactionData.transactions.filter(
+        (transaction): transaction is Transaction =>
+          transaction &&
+          typeof transaction === 'object' &&
+          'date' in transaction &&
+          'description' in transaction,
+      );
+      return extractMonthsFromTransactions(validTransactions);
+    }
+    return [];
+  }, [transactionData]);
+
+  // Filter transactions based on selected bank and month
   const filteredTransactionData = useMemo(() => {
     if (!transactionData) return null;
-    if (!selectedBank) return transactionData;
 
-    const filtered = {
+    // Get the grouped bank data to ensure consistency with bank selector
+    let sourceTransactions: (Transaction | { [key: string]: unknown; bank: string })[] = [];
+
+    if (
+      upload &&
+      upload.originalResponse &&
+      typeof upload.originalResponse === 'object' &&
+      upload.originalResponse !== null &&
+      'results' in upload.originalResponse &&
+      Array.isArray((upload.originalResponse as { results: unknown[] }).results)
+    ) {
+      try {
+        // Use the same grouped bank logic as bankData
+        const processedMultiBankData = processMultiBankResponse(
+          upload.originalResponse as BackendResponse,
+        );
+        const groupedBanks = groupBanksByName(processedMultiBankData);
+
+        if (selectedBank) {
+          // Find the selected bank and get its transactions
+          const selectedBankData = groupedBanks.find((bank) => bank.bank === selectedBank);
+          if (selectedBankData) {
+            sourceTransactions = selectedBankData.transactions;
+          }
+        } else {
+          // Get all transactions from all banks
+          sourceTransactions = groupedBanks.flatMap((bank) => bank.transactions);
+        }
+      } catch (error) {
+        console.warn('Failed to process grouped banks for filtering:', error);
+        // Fallback to original transactionData
+        sourceTransactions = transactionData.transactions;
+      }
+    } else {
+      // Fallback to original transactionData
+      sourceTransactions = transactionData.transactions;
+    }
+
+    let filteredTransactions = sourceTransactions;
+
+    // Apply month filtering if selected
+    if (selectedMonth) {
+      // Filter out non-Transaction objects before month filtering
+      const validTransactions = filteredTransactions.filter(
+        (transaction): transaction is Transaction =>
+          transaction &&
+          typeof transaction === 'object' &&
+          'date' in transaction &&
+          'description' in transaction,
+      );
+      const monthFilteredTransactions = filterTransactionsByMonth(validTransactions, selectedMonth);
+
+      // Combine month-filtered transactions with non-Transaction objects
+      const nonTransactionObjects = filteredTransactions.filter(
+        (transaction) =>
+          !(
+            transaction &&
+            typeof transaction === 'object' &&
+            'date' in transaction &&
+            'description' in transaction
+          ),
+      );
+
+      filteredTransactions = [...monthFilteredTransactions, ...nonTransactionObjects];
+    }
+
+    return {
       ...transactionData,
-      transactions: transactionData.transactions.filter(
-        (transaction: { bank: string }) => transaction.bank === selectedBank,
-      ),
+      transactions: filteredTransactions,
     };
-
-    return filtered;
-  }, [transactionData, selectedBank]);
+  }, [transactionData, selectedBank, selectedMonth, upload]);
 
   if (loading) {
     return (
@@ -238,7 +406,7 @@ const UploadDetailPage = () => {
       </Stack>
 
       {/* Bank Selector */}
-      {transactionData && bankData.length > 1 && (
+      {transactionData && bankData.length > 0 && (
         <Grid item xs={12} sx={{ mb: 3 }}>
           <BankSelector
             banks={bankData}
@@ -248,9 +416,31 @@ const UploadDetailPage = () => {
         </Grid>
       )}
 
+      {/* Month Selector */}
+      {filteredTransactionData && availableMonths.length > 1 && (
+        <Grid item xs={12} sx={{ mb: 3 }}>
+          <MonthSelector
+            months={availableMonths}
+            selectedMonth={selectedMonth}
+            onMonthChange={setSelectedMonth}
+          />
+        </Grid>
+      )}
+
       {/* Transaction Analysis */}
       {filteredTransactionData ? (
         <Grid container spacing={3}>
+          {/* Personal Details */}
+          {filteredTransactionData.personalDetails && (
+            <Grid item xs={12}>
+              <PersonalDetails
+                personalDetails={filteredTransactionData.personalDetails}
+                bankName={filteredTransactionData.bank}
+                multiBankData={null} // Upload detail page doesn't have multi-bank data yet
+              />
+            </Grid>
+          )}
+
           {/* Transaction Summary */}
           <Grid item xs={12}>
             <TransactionSummary

@@ -1,7 +1,6 @@
-# Analyzr.AI
+# Spently
 
 > AI-powered financial transaction analysis platform that transforms bank statements into actionable insights.
-
 
 ## 🚀 Features
 
@@ -100,7 +99,6 @@
 4. **Export Reports**: Download PDF or CSV reports for your records
 5. **Track History**: View all your previous uploads and analyses
 
-
 ---
 
-**Analyzr.AI**: Transform your bank statements into financial insights with the power of AI.
+**Spently**: Transform your bank statements into financial insights with the power of AI.

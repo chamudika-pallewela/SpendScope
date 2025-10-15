@@ -5,26 +5,62 @@ import AffordabilityReport from 'components/sections/dashboard/transactions/Affo
 import IncomeVerification from 'components/sections/dashboard/transactions/IncomeVerification';
 import AMLRiskIndicators from 'components/sections/dashboard/transactions/AMLRiskIndicators';
 import BankSelector, { BankData } from 'components/sections/dashboard/transactions/BankSelector';
+import PersonalDetails from 'components/sections/dashboard/transactions/PersonalDetails';
+import MonthSelector from 'components/sections/dashboard/transactions/MonthSelector';
 import IconifyIcon from 'components/base/IconifyIcon';
 import TransactionSummary from 'components/sections/dashboard/transactions/TransactionSummary';
 import FileUpload from 'components/sections/dashboard/upload/FileUpload';
 import { buildApiUrl } from 'config/api';
-import { TransactionResponse, CATEGORY_MAP } from 'config/categories';
+import {
+  TransactionResponse,
+  CATEGORY_MAP,
+  Transaction,
+  PersonalDetailsType,
+} from 'config/categories';
 import { useState, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { saveUpload, testFirebaseConnection } from '../../services/uploadService';
+import {
+  processMultiBankResponse,
+  groupBanksByName,
+  extractMonthsFromTransactions,
+  filterTransactionsByMonth,
+} from '../../helpers/utils';
 
 const Dashboard = () => {
   const [transactionData, setTransactionData] = useState<TransactionResponse | null>(null);
+  const [multiBankData, setMultiBankData] = useState<Array<{
+    bank: string;
+    customer: string;
+    transactions: Transaction[];
+    personalDetails: PersonalDetailsType;
+    logo?: string;
+    accountCount: number;
+    accounts: Array<{
+      customer: string;
+      account_number_masked: string;
+      sort_code: string;
+      transactionCount: number;
+    }>;
+  }> | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
-  const [originalApiResponse, setOriginalApiResponse] = useState<unknown>(null);
+  const [selectedBankFromPersonalDetails, setSelectedBankFromPersonalDetails] = useState<
+    string | null
+  >(null);
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const { currentUser } = useAuth();
 
   const handleClearData = () => {
     setTransactionData(null);
+    setMultiBankData(null);
     setSelectedBank(null);
-    setOriginalApiResponse(null);
+    setSelectedBankFromPersonalDetails(null);
+    setSelectedMonth(null);
+  };
+
+  const handlePersonalDetailsBankChange = (selectedBank: string | null) => {
+    setSelectedBankFromPersonalDetails(selectedBank);
   };
 
   const handleFileUpload = async (files: File[]) => {
@@ -35,7 +71,7 @@ const Dashboard = () => {
         formData.append('files', file);
       });
 
-      const response = await fetch(buildApiUrl('/extract-transactions'), {
+      const response = await fetch(buildApiUrl('/extract-transactions-fast'), {
         method: 'POST',
         body: formData,
       });
@@ -46,9 +82,6 @@ const Dashboard = () => {
 
       const result = await response.json();
       console.log('Transaction extraction result:', result);
-
-      // Store the original API response for bank data extraction
-      setOriginalApiResponse(result);
 
       // Save the upload to Firebase if user is logged in
       console.log('Current user status:', {
@@ -142,28 +175,56 @@ const Dashboard = () => {
         }
       }
 
-      // Handle the response format
-      if (result.results && result.results.length > 0) {
-        // Handle multiple files response format
-        const allTransactions = result.results.flatMap(
-          (fileResult: { transactions: unknown[] }) => fileResult.transactions,
-        );
-        const firstResult = result.results[0];
+      // Process the backend response using the new utility function
+      try {
+        // Process all results and group by bank name
+        const processedMultiBankData = processMultiBankResponse(result);
+        const groupedBanks = groupBanksByName(processedMultiBankData);
 
-        setTransactionData({
-          bank: files.length > 1 ? `Multiple Banks (${files.length} files)` : firstResult.bank,
-          transactions: allTransactions,
-        });
+        // Check if we have multiple different banks after grouping
+        if (groupedBanks.length > 1) {
+          // Multiple different banks - use multi-bank processing
+          setMultiBankData(groupedBanks);
+          setTransactionData(null); // Clear single bank data
+        } else if (groupedBanks.length === 1) {
+          // Single bank (even if it has multiple accounts) - use single bank processing
+          const singleBankData = groupedBanks[0];
+          setTransactionData({
+            bank: singleBankData.bank,
+            transactions: singleBankData.transactions,
+            personalDetails: singleBankData.personalDetails,
+          });
+          setMultiBankData(null); // Clear multi-bank data
+        } else {
+          // No banks - clear all data
+          setTransactionData(null);
+          setMultiBankData(null);
+        }
+
         setSelectedBank(null); // Reset bank selection when new data is loaded
-      } else if (result.transactions) {
-        // Handle single file response format
-        setTransactionData({
-          bank: result.bank,
-          transactions: result.transactions,
-        });
-        setSelectedBank(null); // Reset bank selection when new data is loaded
-      } else {
-        console.error('No results found in response');
+      } catch (error) {
+        console.error('Error processing backend response:', error);
+        // Fallback to old format if processing fails
+        if (result.results && result.results.length > 0) {
+          const allTransactions = result.results.flatMap(
+            (fileResult: { transactions: unknown[] }) => fileResult.transactions,
+          );
+          const firstResult = result.results[0];
+
+          setTransactionData({
+            bank: files.length > 1 ? `Multiple Banks (${files.length} files)` : firstResult.bank,
+            transactions: allTransactions,
+          });
+          setSelectedBank(null);
+        } else if (result.transactions) {
+          setTransactionData({
+            bank: result.bank,
+            transactions: result.transactions,
+          });
+          setSelectedBank(null);
+        } else {
+          console.error('No results found in response');
+        }
       }
     } catch (error) {
       console.error('Error uploading files:', error);
@@ -175,66 +236,139 @@ const Dashboard = () => {
 
   // Extract bank data from transaction data
   const bankData = useMemo(() => {
-    if (!transactionData) return [];
-
-    // If we have results from multiple files, extract bank info from each
     const banks: BankData[] = [];
-    const bankMap = new Map<string, { customer_name: string; transactionCount: number }>();
 
-    // Try to extract customer names from the original API response structure
-    // This assumes the API response has the structure you showed with results array
-    const originalResults = (originalApiResponse as { results?: unknown[] })?.results || [];
-
-    transactionData.transactions.forEach((transaction) => {
-      const bankName = transaction.bank;
-      if (bankMap.has(bankName)) {
-        const existing = bankMap.get(bankName)!;
-        existing.transactionCount += 1;
-      } else {
-        // Try to find customer name from original results
-        const originalResult = originalResults.find(
-          (result: unknown) => (result as { bank: string }).bank === bankName,
-        ) as { customer_name?: string } | undefined;
-        const customerName = originalResult?.customer_name || 'Customer';
-
-        bankMap.set(bankName, {
-          customer_name: customerName,
-          transactionCount: 1,
+    // Handle multi-bank data (already grouped)
+    if (multiBankData && multiBankData.length > 0) {
+      multiBankData.forEach((bankInfo) => {
+        banks.push({
+          bank: bankInfo.bank,
+          customer_name: bankInfo.customer,
+          transactionCount: bankInfo.transactions.length,
+          logo: bankInfo.logo,
+          account_number_masked: bankInfo.personalDetails.account_number_masked,
+          sort_code: bankInfo.personalDetails.sort_code,
+          accountCount: bankInfo.accountCount,
+          accounts: bankInfo.accounts,
         });
-      }
-    });
-
-    // Convert map to array
-    bankMap.forEach((data, bankName) => {
-      banks.push({
-        bank: bankName,
-        customer_name: data.customer_name,
-        transactionCount: data.transactionCount,
       });
-    });
+      return banks;
+    }
+
+    // Handle single bank data
+    if (transactionData) {
+      banks.push({
+        bank: transactionData.bank,
+        customer_name: transactionData.personalDetails?.customer || 'Customer',
+        transactionCount: transactionData.transactions.length,
+        account_number_masked: transactionData.personalDetails?.account_number_masked,
+        sort_code: transactionData.personalDetails?.sort_code,
+      });
+    }
 
     return banks;
-  }, [transactionData, originalApiResponse]);
+  }, [transactionData, multiBankData]);
 
-  // Filter transactions based on selected bank
+  // Extract months from current transaction data
+  const availableMonths = useMemo(() => {
+    if (multiBankData && multiBankData.length > 0) {
+      // For multi-bank data, get months from all banks
+      const allTransactions = multiBankData.flatMap((bank) => bank.transactions);
+      return extractMonthsFromTransactions(allTransactions);
+    } else if (transactionData) {
+      // For single bank data
+      return extractMonthsFromTransactions(transactionData.transactions);
+    }
+    return [];
+  }, [transactionData, multiBankData]);
+
+  // Filter transactions based on selected bank (from main selector or PersonalDetails) and month
   const filteredTransactionData = useMemo(() => {
-    if (!transactionData) return null;
-    if (!selectedBank) return transactionData;
+    // Priority: PersonalDetails bank selection overrides main bank selector
+    const effectiveSelectedBank =
+      selectedBankFromPersonalDetails !== null ? selectedBankFromPersonalDetails : selectedBank;
 
-    const filtered = {
-      ...transactionData,
-      transactions: transactionData.transactions.filter(
-        (transaction) => transaction.bank === selectedBank,
-      ),
-    };
+    // Handle multi-bank data
+    if (multiBankData && multiBankData.length > 0) {
+      if (!effectiveSelectedBank) {
+        // Return combined data for all banks
+        const allTransactions = multiBankData.flatMap((bank) => bank.transactions);
+        const firstBank = multiBankData[0];
 
-    console.log(
-      `Filtered transactions for ${selectedBank}:`,
-      filtered.transactions.length,
-      'transactions',
-    );
-    return filtered;
-  }, [transactionData, selectedBank]);
+        // If all banks have the same name (grouped), show just the bank name
+        const allSameBank = multiBankData.every((bank) => bank.bank === firstBank.bank);
+        const bankDisplayName = allSameBank
+          ? firstBank.bank
+          : `Multiple Banks (${multiBankData.length} banks)`;
+
+        // Apply month filtering if selected
+        const filteredTransactions = selectedMonth
+          ? filterTransactionsByMonth(allTransactions, selectedMonth)
+          : allTransactions;
+
+        return {
+          bank: bankDisplayName,
+          transactions: filteredTransactions,
+          personalDetails: firstBank.personalDetails, // Use first bank's personal details as default
+        };
+      } else {
+        // Return data for selected bank
+        const selectedBankData = multiBankData.find((bank) => bank.bank === effectiveSelectedBank);
+        if (selectedBankData) {
+          // Apply month filtering if selected
+          const filteredTransactions = selectedMonth
+            ? filterTransactionsByMonth(selectedBankData.transactions, selectedMonth)
+            : selectedBankData.transactions;
+
+          return {
+            bank: selectedBankData.bank,
+            transactions: filteredTransactions,
+            personalDetails: selectedBankData.personalDetails,
+          };
+        }
+        return null;
+      }
+    }
+
+    // Handle single bank data
+    if (transactionData) {
+      if (!effectiveSelectedBank) {
+        // Apply month filtering if selected
+        const filteredTransactions = selectedMonth
+          ? filterTransactionsByMonth(transactionData.transactions, selectedMonth)
+          : transactionData.transactions;
+
+        return {
+          ...transactionData,
+          transactions: filteredTransactions,
+        };
+      }
+
+      // Since bank is now at the response level, we only filter if the selected bank matches
+      if (transactionData.bank === effectiveSelectedBank) {
+        // Apply month filtering if selected
+        const filteredTransactions = selectedMonth
+          ? filterTransactionsByMonth(transactionData.transactions, selectedMonth)
+          : transactionData.transactions;
+
+        return {
+          ...transactionData,
+          transactions: filteredTransactions,
+        };
+      }
+
+      // If no match, return null (this shouldn't happen with proper bank selection)
+      return null;
+    }
+
+    return null;
+  }, [
+    transactionData,
+    multiBankData,
+    selectedBank,
+    selectedBankFromPersonalDetails,
+    selectedMonth,
+  ]);
 
   // Export helpers (buttons under upload area)
   const buildExportRows = () => {
@@ -544,6 +678,29 @@ const Dashboard = () => {
             banks={bankData}
             selectedBank={selectedBank}
             onBankChange={setSelectedBank}
+          />
+        </Grid>
+      )}
+
+      {/* ------------- Month Selector section ---------------- */}
+      {filteredTransactionData && availableMonths.length > 1 && (
+        <Grid item xs={12}>
+          <MonthSelector
+            months={availableMonths}
+            selectedMonth={selectedMonth}
+            onMonthChange={setSelectedMonth}
+          />
+        </Grid>
+      )}
+
+      {/* ------------- Personal Details section ---------------- */}
+      {filteredTransactionData && filteredTransactionData.personalDetails && (
+        <Grid item xs={12}>
+          <PersonalDetails
+            personalDetails={filteredTransactionData.personalDetails}
+            bankName={filteredTransactionData.bank}
+            multiBankData={multiBankData || undefined}
+            onBankSelectionChange={handlePersonalDetailsBankChange}
           />
         </Grid>
       )}

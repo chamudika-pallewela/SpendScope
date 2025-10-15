@@ -4,7 +4,6 @@ import {
   Typography,
   Grid,
   Chip,
-  Link,
   CircularProgress,
   Dialog,
   DialogTitle,
@@ -53,13 +52,19 @@ const isIncomeTransaction = (t: Transaction): boolean => {
 };
 
 const getPayer = (t: Transaction): string => {
-  return t.description || t.raw_description || 'Unknown';
+  return t.description || 'Unknown';
 };
 
 const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
   try {
     // Clean the company name for search
     const cleanName = companyName.replace(/FPI|DD|TFR|PAYROLL/i, '').trim();
+
+    // Generate a proper UK Companies House search URL
+    const generateCompaniesHouseUrl = (searchTerm: string): string => {
+      const encodedTerm = encodeURIComponent(searchTerm);
+      return `https://find-and-update.company-information.service.gov.uk/search?q=${encodedTerm}`;
+    };
 
     // In a real implementation, you would call the Companies House API here
     // For demo purposes, we'll simulate an API call that returns different companies for different payers
@@ -78,8 +83,7 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
         status: 'Active',
         address: '72 Hebdon Road, London, United Kingdom, SW17 7NN',
         incorporated: '20 October 2016',
-        companyUrl:
-          'https://find-and-update.company-information.service.gov.uk/search?q=AHTHAVANN+VELU+LTD',
+        companyUrl: generateCompaniesHouseUrl('AHTHAVANN VELU LTD'),
       };
     } else if (cleanName.toLowerCase().includes('kamaraj')) {
       mockApiResponse = {
@@ -88,8 +92,7 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
         status: 'Active',
         address: '456 Commerce Road, Manchester, M1 1AA',
         incorporated: '19 March 2019',
-        companyUrl:
-          'https://find-and-update.company-information.service.gov.uk/search?q=KAMARAJ+ENTERPRISES',
+        companyUrl: generateCompaniesHouseUrl('KAMARAJ ENTERPRISES LTD'),
       };
     } else if (
       cleanName.toLowerCase().includes('loyd') ||
@@ -102,8 +105,7 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
         status: 'Active',
         address: '1-3 The Broad, London, United Kingdom, SW1A 1AA',
         incorporated: '15 March 2018',
-        companyUrl:
-          'https://find-and-update.company-information.service.gov.uk/search?q=LOYD+PROPERTY+MANAGEMENT',
+        companyUrl: generateCompaniesHouseUrl('LOYD PROPERTY MANAGEMENT LTD'),
       };
     } else if (cleanName.toLowerCase().includes('brandvale')) {
       mockApiResponse = {
@@ -112,8 +114,7 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
         status: 'Active',
         address: '123 Property Street, London, United Kingdom, SW1A 1AA',
         incorporated: '10 January 2017',
-        companyUrl:
-          'https://find-and-update.company-information.service.gov.uk/search?q=BRANDVALE+PROPERTIES',
+        companyUrl: generateCompaniesHouseUrl('BRANDVALE PROPERTIES LTD'),
       };
     } else if (cleanName.toLowerCase().includes('stanhill')) {
       mockApiResponse = {
@@ -122,8 +123,7 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
         status: 'Active',
         address: 'Stanhill Court, Surrey, United Kingdom, RH1 1AA',
         incorporated: '22 May 2019',
-        companyUrl:
-          'https://find-and-update.company-information.service.gov.uk/search?q=STANHILL+COURT+HOTEL',
+        companyUrl: generateCompaniesHouseUrl('STANHILL COURT HOTEL LTD'),
       };
     } else if (
       cleanName.toLowerCase().includes('thamilarasan') ||
@@ -135,8 +135,7 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
         status: 'Active',
         address: '789 Business Park, London, United Kingdom, SW1A 1AA',
         incorporated: '12 April 2020',
-        companyUrl:
-          'https://find-and-update.company-information.service.gov.uk/search?q=THAMILARASAN+ENTERPRISES',
+        companyUrl: generateCompaniesHouseUrl('THAMILARASAN ENTERPRISES LTD'),
       };
     } else if (
       cleanName.toLowerCase().includes('muthulaks') ||
@@ -148,8 +147,7 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
         status: 'Active',
         address: '456 Trading Street, Manchester, United Kingdom, M1 1AA',
         incorporated: '08 September 2021',
-        companyUrl:
-          'https://find-and-update.company-information.service.gov.uk/search?q=MUTHULAKS+TRADING',
+        companyUrl: generateCompaniesHouseUrl('MUTHULAKS TRADING LTD'),
       };
     } else if (
       cleanName.toLowerCase().includes('godwin') ||
@@ -161,8 +159,7 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
         status: 'Active',
         address: '321 Consulting Avenue, Birmingham, United Kingdom, B1 1AA',
         incorporated: '15 November 2019',
-        companyUrl:
-          'https://find-and-update.company-information.service.gov.uk/search?q=GODWIN+SELVAD+CONSULTING',
+        companyUrl: generateCompaniesHouseUrl('GODWIN SELVAD CONSULTING LTD'),
       };
     } else {
       // For other payers, create a realistic company but don't link to fake Companies House entries
@@ -172,7 +169,7 @@ const fetchCompanyInfo = async (companyName: string): Promise<CompanyInfo> => {
         status: 'Active',
         address: '789 Corporate Avenue, Birmingham, B1 1AA',
         incorporated: '10 June 2021',
-        companyUrl: 'https://find-and-update.company-information.service.gov.uk/search', // Link to search instead
+        companyUrl: generateCompaniesHouseUrl(`${cleanName.toUpperCase()} LIMITED`),
       };
     }
 
@@ -354,8 +351,8 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
 
         let companyInfo: CompanyInfo | undefined;
 
-        // Fetch company info for salary transactions
-        if (transaction.subcategory === 'Salary (PAYE)' && !processedPayers.has(payer)) {
+        // Fetch company info for ALL income transactions
+        if (!processedPayers.has(payer)) {
           if (!companyData.has(key)) {
             const info = await fetchCompanyInfo(payer);
             setCompanyData((prev) => new Map(prev).set(key, info));
@@ -1236,33 +1233,31 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
                             {record.payer}
                           </Typography>
 
-                          {record.subcategory === 'Salary (PAYE)' && record.companyInfo && (
-                            <Box
-                              sx={{
-                                mt: 1,
-                                p: 1.5,
-                                backgroundColor: 'primary.50',
-                                borderRadius: 1.5,
-                                border: '1px solid',
-                                borderColor: 'primary.200',
-                              }}
-                            >
-                              <Stack spacing={0.5}>
-                                <Typography
-                                  variant="caption"
-                                  color="primary.main"
-                                  sx={{ fontWeight: 600, fontSize: '0.7rem' }}
-                                >
-                                  🏢 {record.companyInfo.name}
-                                </Typography>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{ fontSize: '0.7rem' }}
-                                >
-                                  #{record.companyInfo.number} • {record.companyInfo.status}
-                                </Typography>
-                              </Stack>
+                          {record.companyInfo && (
+                            <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                href={record.companyInfo.companyUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{
+                                  fontSize: '0.6rem',
+                                  py: 0.3,
+                                  px: 0.8,
+                                  minWidth: 'auto',
+                                  height: '24px',
+                                  borderColor: 'primary.main',
+                                  color: 'primary.main',
+                                  '&:hover': {
+                                    backgroundColor: 'primary.main',
+                                    color: 'white',
+                                    borderColor: 'primary.main',
+                                  },
+                                }}
+                              >
+                                Company URL
+                              </Button>
                             </Box>
                           )}
                         </Stack>
@@ -1527,70 +1522,36 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
                   </Typography>
                 </Box>
 
-                {/* Company Information */}
-                {selectedTransaction.subcategory === 'Salary (PAYE)' &&
-                  selectedTransaction.companyInfo && (
-                    <Box
+                {/* Company Information - Simplified */}
+                {selectedTransaction.companyInfo && (
+                  <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      🏢 {selectedTransaction.companyInfo.name}
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      href={selectedTransaction.companyInfo.companyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       sx={{
-                        p: 2,
-                        backgroundColor: 'primary.50',
-                        borderRadius: 2,
-                        border: '1px solid',
-                        borderColor: 'primary.200',
+                        fontSize: '0.7rem',
+                        py: 0.5,
+                        px: 1.5,
+                        height: '28px',
+                        borderColor: 'primary.main',
+                        color: 'primary.main',
+                        '&:hover': {
+                          backgroundColor: 'primary.main',
+                          color: 'white',
+                          borderColor: 'primary.main',
+                        },
                       }}
                     >
-                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                        <IconifyIcon
-                          icon="material-symbols:business"
-                          sx={{ fontSize: 18, color: 'primary.main' }}
-                        />
-                        <Typography
-                          variant="subtitle2"
-                          sx={{ fontWeight: 600, color: 'primary.main' }}
-                        >
-                          Company Information
-                        </Typography>
-                      </Stack>
-                      <Stack spacing={1}>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                          {selectedTransaction.companyInfo.name}
-                        </Typography>
-                        <Stack direction="row" spacing={2}>
-                          <Typography variant="caption" color="text.secondary">
-                            #{selectedTransaction.companyInfo.number}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            color="success.main"
-                            sx={{ fontWeight: 600 }}
-                          >
-                            {selectedTransaction.companyInfo.status}
-                          </Typography>
-                        </Stack>
-                        <Typography variant="caption" color="text.secondary">
-                          📍 {selectedTransaction.companyInfo.address}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          📅 Incorporated: {selectedTransaction.companyInfo.incorporated}
-                        </Typography>
-                        <Link
-                          href={selectedTransaction.companyInfo.companyUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          sx={{
-                            fontSize: '0.8rem',
-                            textDecoration: 'none',
-                            color: 'primary.main',
-                            fontWeight: 500,
-                            display: 'inline-block',
-                            mt: 1,
-                          }}
-                        >
-                          View on Companies House →
-                        </Link>
-                      </Stack>
-                    </Box>
-                  )}
+                      Company URL
+                    </Button>
+                  </Box>
+                )}
 
                 {/* Flags Explanation */}
                 {selectedTransaction.flags.length > 0 && (
@@ -1673,9 +1634,7 @@ const IncomeVerification = ({ transactionData }: IncomeVerificationProps) => {
                     Transaction Description
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {selectedTransaction.transaction.description ||
-                      selectedTransaction.transaction.raw_description ||
-                      'No description available'}
+                    {selectedTransaction.transaction.description || 'No description available'}
                   </Typography>
                 </Box>
               </Stack>

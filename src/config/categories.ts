@@ -9,14 +9,12 @@ export const CATEGORY_MAP = {
         'Council Tax',
         'Electricity',
         'Gas',
-        'Electricity and Gas',
         'Water',
         'Internet / Telephone / TV',
       ],
       'Food & Household': [
         'Groceries / Supermarkets',
         'Household goods (cleaning, toiletries, etc.)',
-        'Dining / Takeaway / Restaurants',
       ],
     },
   },
@@ -37,7 +35,7 @@ export const CATEGORY_MAP = {
     color: '#7C3AED', // Modern violet
     subcategories: {
       'Childcare / Nursery / Babysitting': [],
-      'School fees / Tuition': [],
+      'School fees / Tuition': ['School Pay Tuition'],
       'Clothing & footwear': [],
       'Healthcare / Medicines / Insurance': [],
       'Elderly care / Family support payments': [],
@@ -70,6 +68,8 @@ export const CATEGORY_MAP = {
       ],
       'Dining out / Coffee shops': [],
       'Travel & Holidays': [],
+      'Dining / Takeaway / Restaurants': [],
+      Gambling: [],
     },
   },
   'Income Categories': {
@@ -93,7 +93,6 @@ export const SUBCATEGORY_ICONS: Record<string, string> = {
   'Council Tax': 'material-symbols:account-balance',
   Electricity: 'material-symbols:bolt',
   Gas: 'material-symbols:local-fire-department',
-  'Electricity and Gas': 'material-symbols:electrical-services',
   Water: 'material-symbols:water-drop',
   'Internet / Telephone / TV': 'material-symbols:wifi',
 
@@ -101,7 +100,6 @@ export const SUBCATEGORY_ICONS: Record<string, string> = {
   'Food & Household': 'material-symbols:shopping-cart',
   'Groceries / Supermarkets': 'material-symbols:shopping-cart',
   'Household goods (cleaning, toiletries, etc.)': 'material-symbols:cleaning-services',
-  'Dining / Takeaway / Restaurants': 'material-symbols:restaurant',
 
   // Transport & Travel
   'Transport & Travel': 'material-symbols:local-taxi',
@@ -116,6 +114,7 @@ export const SUBCATEGORY_ICONS: Record<string, string> = {
   'Family & Dependents': 'material-symbols:family-restroom',
   'Childcare / Nursery / Babysitting': 'material-symbols:child-care',
   'School fees / Tuition': 'material-symbols:school',
+  'School Pay Tuition': 'material-symbols:school',
   'Clothing & footwear': 'material-symbols:checkroom',
   'Healthcare / Medicines / Insurance': 'material-symbols:medical-services',
   'Elderly care / Family support payments': 'material-symbols:diversity-3',
@@ -143,6 +142,8 @@ export const SUBCATEGORY_ICONS: Record<string, string> = {
   'personal technology': 'material-symbols:devices',
   'Dining out / Coffee shops': 'material-symbols:local-cafe',
   'Travel & Holidays': 'material-symbols:flight',
+  'Dining / Takeaway / Restaurants': 'material-symbols:restaurant',
+  Gambling: 'material-symbols:casino',
 
   // Income Categories
   'Income Categories': 'material-symbols:trending-up',
@@ -170,7 +171,38 @@ export interface Transaction {
   note?: string;
 }
 
+export interface PersonalDetailsType {
+  customer: string;
+  customer_address: string;
+  account_number: string;
+  account_number_masked: string;
+  sort_code: string;
+  phone_number: string;
+  email: string;
+  customer_id: string;
+  reference_number: string;
+}
+
+export interface BackendResult {
+  bank: string;
+  customer: string;
+  customer_address: string;
+  account_number: string;
+  account_number_masked: string;
+  sort_code: string;
+  phone_number: string;
+  email: string;
+  customer_id: string;
+  reference_number: string;
+  transactions: Transaction[];
+}
+
+export interface BackendResponse {
+  results: BackendResult[];
+}
+
 export interface TransactionResponse {
   bank: string;
   transactions: Transaction[];
+  personalDetails?: PersonalDetailsType;
 }
