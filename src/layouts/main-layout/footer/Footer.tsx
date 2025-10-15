@@ -9,7 +9,7 @@ const Footer = () => {
               fontWeight="regular"
               sx={{ fontSize: { xs: 'caption.fontSize', md: 'body2.fontSize' } }}
             >
-              &copy; {new Date().getFullYear()}, WIS Morgrates.
+              &copy; {new Date().getFullYear()}, Spently.
             </Typography>
           </Box>
         </Container>
