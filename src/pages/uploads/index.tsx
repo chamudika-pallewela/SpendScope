@@ -151,6 +151,7 @@ const UploadsPage = () => {
 
   return (
     <Box>
+      <br />
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4" component="h1">
           My Uploads

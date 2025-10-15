@@ -355,9 +355,11 @@ const UploadDetailPage = () => {
   if (error || !upload) {
     return (
       <Box>
+        <br />
         <Alert severity="error" sx={{ mb: 3 }}>
           {error || 'Upload not found'}
         </Alert>
+        <br />
         <Button
           variant="contained"
           startIcon={<IconifyIcon icon="material-symbols:arrow-back" />}
@@ -383,7 +385,7 @@ const UploadDetailPage = () => {
             Back to Uploads
           </Button>
           <Typography variant="h4" component="h1" sx={{ mb: 1 }}>
-            {upload.customerName}
+            {transactionData?.personalDetails?.customer || upload.customerName}
           </Typography>
           <Stack direction="row" spacing={2} alignItems="center">
             <Typography variant="body1" color="text.secondary">

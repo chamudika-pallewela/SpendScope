@@ -4,8 +4,9 @@ import { useLocation } from 'react-router-dom';
 interface MenuListProps {
   menuItem: MenuLinkType;
   onDrawerClose?: () => void;
+  collapsed?: boolean;
 }
-const MenuListItem = ({ menuItem, onDrawerClose }: MenuListProps) => {
+const MenuListItem = ({ menuItem, onDrawerClose, collapsed = false }: MenuListProps) => {
   const { icon: Icon } = menuItem;
   const itemIcon = Icon ? (
     <Icon sx={{ width: { xs: 20, xl: 24 }, height: { xs: 20, xl: 24 } }} />
@@ -40,12 +41,13 @@ const MenuListItem = ({ menuItem, onDrawerClose }: MenuListProps) => {
         onClick={onDrawerClose}
         sx={{
           py: 1.5,
-          px: 3,
+          px: collapsed ? 2 : 3,
           display: 'flex',
           alignItems: 'center',
-          gap: 3.125,
+          gap: collapsed ? 0 : 3.125,
           flex: 1,
           borderRadius: 2,
+          justifyContent: collapsed ? 'center' : 'flex-start',
           color: isActive ? 'primary.main' : menuItem.available ? 'grey[700]' : 'action.disabled',
           transition: 'color 0.35s ease',
           '&:hover, &:focus': {
@@ -61,7 +63,6 @@ const MenuListItem = ({ menuItem, onDrawerClose }: MenuListProps) => {
         <ListItemIcon
           sx={{
             minWidth: 'auto',
-
             color: isActive
               ? 'primary.main'
               : menuItem.available
@@ -71,19 +72,21 @@ const MenuListItem = ({ menuItem, onDrawerClose }: MenuListProps) => {
         >
           {itemIcon}
         </ListItemIcon>
-        <ListItemText
-          primary={
-            <Typography
-              sx={{
-                fontSize: { xs: 'body1.fontSize', xl: 'h6.fontSize' },
-                fontWeight: 500,
-                textTransform: 'capitalize',
-              }}
-            >
-              {menuItem.title}
-            </Typography>
-          }
-        />
+        {!collapsed && (
+          <ListItemText
+            primary={
+              <Typography
+                sx={{
+                  fontSize: { xs: 'body1.fontSize', xl: 'h6.fontSize' },
+                  fontWeight: 500,
+                  textTransform: 'capitalize',
+                }}
+              >
+                {menuItem.title}
+              </Typography>
+            }
+          />
+        )}
       </Link>
     </ListItem>
   );

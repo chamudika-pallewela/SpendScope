@@ -329,7 +329,7 @@ const SignupPage = () => {
         sx={{
           flex: 1,
           display: { xs: 'none', lg: 'flex' },
-          backgroundColor: '#8B5CF6',
+          backgroundColor: '#3B82F6',
           position: 'relative',
           overflow: 'hidden',
           height: '100vh',
@@ -343,7 +343,7 @@ const SignupPage = () => {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%)',
+            background: 'linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%)',
           }}
         />
 

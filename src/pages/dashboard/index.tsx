@@ -71,7 +71,7 @@ const Dashboard = () => {
         formData.append('files', file);
       });
 
-      const response = await fetch(buildApiUrl('/extract-transactions-fast'), {
+      const response = await fetch(buildApiUrl('/extract-transactions'), {
         method: 'POST',
         body: formData,
       });
@@ -133,8 +133,20 @@ const Dashboard = () => {
               }
             }
           } else if (result.transactions) {
-            customerName = result.customer_name || result.customerName || 'Unknown Customer';
-            bank = result.bank;
+            // Try to extract customer name from the processed data
+            const processedData = processMultiBankResponse(result);
+            const groupedBanks = groupBanksByName(processedData);
+
+            if (groupedBanks.length > 0) {
+              const customerNames = [...new Set(groupedBanks.map((bank) => bank.customer))];
+              customerName =
+                customerNames.length === 1 ? customerNames[0] : customerNames.join(', ');
+              const bankNames = [...new Set(groupedBanks.map((bank) => bank.bank))];
+              bank = bankNames.length === 1 ? bankNames[0] : bankNames.join(', ');
+            } else {
+              customerName = result.customer_name || result.customerName || 'Unknown Customer';
+              bank = result.bank;
+            }
 
             // Extract date range from transactions
             const dates = result.transactions
@@ -160,8 +172,7 @@ const Dashboard = () => {
             resultKeys: Object.keys(result),
           });
 
-          const uploadId = await saveUpload(currentUser.uid, customerName, bank, dateRange, result);
-          console.log('Upload saved successfully with ID:', uploadId);
+          await saveUpload(currentUser.uid, customerName, bank, dateRange, result);
         } catch (saveError) {
           console.error('Error saving upload:', saveError);
           console.error('Save error details:', {

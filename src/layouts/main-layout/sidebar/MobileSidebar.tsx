@@ -9,12 +9,14 @@ interface MobileSidebarProps {
   onDrawerTransitionEnd: () => void;
   mobileOpen: boolean;
   drawerWidth: number;
+  collapsed?: boolean;
 }
 const MobileSidebar = ({
   onDrawerClose,
   onDrawerTransitionEnd,
   mobileOpen,
   drawerWidth,
+  collapsed = false,
 }: MobileSidebarProps) => {
   return (
     <Drawer
@@ -43,14 +45,23 @@ const MobileSidebar = ({
         width: drawerWidth,
       }}
     >
-      <Toolbar sx={{ gap: 1, minHeight: 100 }}>
-        <Logo />
+      <Toolbar sx={{ gap: 1, minHeight: 100, justifyContent: collapsed ? 'center' : 'flex-start' }}>
+        {collapsed ? (
+          <img src="/bankdash.svg" alt="Logo" style={{ width: 32, height: 32 }} />
+        ) : (
+          <Logo />
+        )}
       </Toolbar>
 
       <SimpleBar style={{ maxHeight: 'calc(100vh - 100px)' }}>
         <List sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {menuLinks.map((menu) => (
-            <MenuListItem key={menu.id} menuItem={menu} onDrawerClose={onDrawerClose} />
+            <MenuListItem
+              key={menu.id}
+              menuItem={menu}
+              onDrawerClose={onDrawerClose}
+              collapsed={collapsed}
+            />
           ))}
         </List>
       </SimpleBar>

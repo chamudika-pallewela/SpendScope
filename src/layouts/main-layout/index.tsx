@@ -10,6 +10,7 @@ const drawerWidth = { lg: 250, md: 240, sm: 230 };
 const MainLayout = ({ children }: PropsWithChildren) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handleDrawerClose = () => {
     setIsClosing(true);
@@ -25,15 +26,24 @@ const MainLayout = ({ children }: PropsWithChildren) => {
       setMobileOpen(!mobileOpen);
     }
   };
+
+  const handleSidebarToggle = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
   return (
     <>
       <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-        <Sidebar drawerWidth={drawerWidth} />
+        <Sidebar
+          drawerWidth={drawerWidth}
+          collapsed={sidebarCollapsed}
+          onToggle={handleSidebarToggle}
+        />
         <MobileSidebar
           onDrawerClose={handleDrawerClose}
           onDrawerTransitionEnd={handleDrawerTransitionEnd}
           mobileOpen={mobileOpen}
           drawerWidth={drawerWidth.lg}
+          collapsed={sidebarCollapsed}
         />
 
         <Stack
@@ -43,13 +53,18 @@ const MainLayout = ({ children }: PropsWithChildren) => {
             width: 1,
             maxWidth: {
               xs: 1,
-              md: `calc(100% - ${drawerWidth.md}px)`,
-              lg: `calc(100% - ${drawerWidth.lg}px)`,
+              md: sidebarCollapsed ? `calc(100% - 80px)` : `calc(100% - ${drawerWidth.md}px)`,
+              lg: sidebarCollapsed ? `calc(100% - 80px)` : `calc(100% - ${drawerWidth.lg}px)`,
             },
             minHeight: '100vh',
+            transition: 'max-width 0.3s ease',
           }}
         >
-          <MainNavbar onDrawerToggle={handleDrawerToggle} />
+          <MainNavbar
+            onDrawerToggle={handleDrawerToggle}
+            onSidebarToggle={handleSidebarToggle}
+            sidebarCollapsed={sidebarCollapsed}
+          />
           <Box
             sx={{
               backgroundColor: { xs: 'common.white', md: 'background.paper' },

@@ -9,15 +9,28 @@ import ProfileDropdown from 'layouts/main-layout/appbar/ProfileDropdown';
 import { useLocation } from 'react-router-dom';
 interface NavbarProps {
   onDrawerToggle: () => void;
+  onSidebarToggle?: () => void;
+  sidebarCollapsed?: boolean;
 }
-const MainNavbar = ({ onDrawerToggle }: NavbarProps) => {
+const MainNavbar = ({ onDrawerToggle, onSidebarToggle }: NavbarProps) => {
   // const [open, setOpen] = useState<null | HTMLElement>(null);
 
   const location = useLocation();
 
   // Extract the route name from the pathname
   const pathSegments = location.pathname.split('/').filter((segment) => segment.trim() !== '');
-  const routeName = pathSegments.length > 0 ? pathSegments.pop() : 'Overview';
+
+  // Handle specific routes to show proper names instead of IDs
+  let routeName = 'Overview';
+  if (location.pathname.includes('/uploads/') && pathSegments.length > 2) {
+    routeName = 'Upload Details';
+  } else if (location.pathname.includes('/profile')) {
+    routeName = 'Profile';
+  } else if (location.pathname.includes('/dashboard')) {
+    routeName = 'Dashboard';
+  } else if (pathSegments.length > 0) {
+    routeName = pathSegments.pop() || 'Overview';
+  }
 
   // const handleOpen = (event: MouseEvent<HTMLElement>) => {
   //   setOpen(event.currentTarget);
@@ -37,19 +50,29 @@ const MainNavbar = ({ onDrawerToggle }: NavbarProps) => {
             gap: { xs: 0, lg: 2 },
           }}
         >
-          <Typography
-            sx={{
-              display: { xs: 'none', md: 'block' },
-              fontSize: { sm: 'h2.fontSize', xl: 'h1.fontSize' },
-              fontWeight: 600,
-              color: 'primary.darker',
-              flex: 1,
-              textAlign: { xs: 'center', md: 'left' },
-              textTransform: 'capitalize',
-            }}
-          >
-            {routeName}
-          </Typography>
+          <Stack direction="row" alignItems="center" gap={2} sx={{ flex: 1 }}>
+            <IconButton
+              onClick={onSidebarToggle}
+              sx={{
+                display: { xs: 'none', md: 'flex' },
+                color: 'primary.darker',
+              }}
+            >
+              <IconifyIcon icon="mingcute:menu-line" color="primary.darker" width={25} />
+            </IconButton>
+            <Typography
+              sx={{
+                display: { xs: 'none', md: 'block' },
+                fontSize: { sm: 'h2.fontSize', xl: 'h1.fontSize' },
+                fontWeight: 600,
+                color: 'primary.darker',
+                textAlign: { xs: 'center', md: 'left' },
+                textTransform: 'capitalize',
+              }}
+            >
+              {routeName}
+            </Typography>
+          </Stack>
           <Stack direction="row" gap={1} sx={{ display: { xs: 'flex', md: 'none' } }}>
             <Link href="/" sx={{ display: 'flex', p: 0.5 }}>
               <Image src="/bankdash.svg" alt="Logo" sx={{ width: 25 }} />

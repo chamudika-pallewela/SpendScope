@@ -79,7 +79,6 @@ export const saveUpload = async (
     const newUploadRef = push(uploadRef, uploadData);
 
     const uploadId = newUploadRef.key!;
-    console.log('Upload pushed to Firebase with ID:', uploadId);
 
     console.log('Upload save completed successfully');
     return uploadId;
@@ -169,7 +168,7 @@ export const getUserUploads = async (userId: string): Promise<UploadSummary[]> =
         }
 
         return {
-          extractedCustomerName: uploadData.customerName,
+          extractedCustomerName: uploadData.customerName || 'Unknown Customer',
           extractedBankName: uploadData.bank || 'Unknown Bank',
         };
       })();
