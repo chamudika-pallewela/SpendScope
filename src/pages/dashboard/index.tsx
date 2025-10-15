@@ -71,7 +71,7 @@ const Dashboard = () => {
         formData.append('files', file);
       });
 
-      const response = await fetch(buildApiUrl('/extract-transactions'), {
+      const response = await fetch(buildApiUrl('/extract-transactions-fast'), {
         method: 'POST',
         body: formData,
       });

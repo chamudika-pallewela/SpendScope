@@ -17,6 +17,7 @@ const ForgetPasswordPage = lazy(() => import('pages/authentication/forget-passwo
 const ResetPasswordPage = lazy(() => import('pages/authentication/reset-password'));
 const VerifyEmailPage = lazy(() => import('pages/authentication/verify-email'));
 
+const LandingPage = lazy(() => import('pages/landing'));
 const ProfilePage = lazy(() => import('pages/profile'));
 const UploadsPage = lazy(() => import('pages/uploads'));
 const UploadDetailPage = lazy(() => import('pages/uploads/[id]'));
@@ -37,7 +38,7 @@ export const routes = [
     children: [
       {
         path: '/',
-        element: <Navigate to="/authentication/sign-up" replace />,
+        element: <LandingPage />,
       },
       {
         path: '/dashboard',
