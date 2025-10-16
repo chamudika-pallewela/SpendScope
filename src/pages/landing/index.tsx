@@ -718,9 +718,8 @@ const LandingPage = () => {
                   letterSpacing: '-0.02em',
                 }}
               >
-                Transform How You
-                <br />
-                Analyze{' '}
+                See Beyond the Numbers — <br />
+                Let AI Explain Your{' '}
                 <Box
                   component="span"
                   sx={{
@@ -743,7 +742,7 @@ const LandingPage = () => {
                     },
                   }}
                 >
-                  Bank Statements
+                  Client's Story
                 </Box>
               </Typography>
 
